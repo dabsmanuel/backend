@@ -1,154 +1,225 @@
-// controllers/investmentController.js
+const Investment = require('../models/Investment');
 const User = require('../models/User');
-const Investment = require('../models/investment');
 const Transaction = require('../models/Transaction');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
-const mongoose = require('mongoose');
 
-exports.submitInvestment = catchAsync(async (req, res) => {
-  const { amount, cryptoType } = req.body;
 
-  if (!req.file) {
-    console.log('Error: Receipt file is missing');
-    return res.status(400).json({ message: 'Receipt is required for investment' });
+exports.getReceipt = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  
+  // First try to find in Investment model
+  let document = await Investment.findById(id);
+  
+  // If not found in Investment, try Transaction model
+  if (!document) {
+    document = await Transaction.findById(id);
   }
-
-  if (!amount || !cryptoType) {
-    console.log('Error: Amount or cryptoType missing');
-    return res.status(400).json({ message: 'Amount and crypto type are required' });
-  }
-
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    console.log('Creating investment record');
-    const investment = await Investment.create([{
-      user: req.user._id,
-      cryptoType,
-      amount: parseFloat(amount),
-      receiptUrl: `/uploads/${req.file.filename}`, 
-      status: 'pending'
-    }], { session });
-
-    console.log('Investment record created:', investment[0]);
-
-    await session.commitTransaction();
-    res.status(201).json({
-      status: 'success',
-      message: 'Investment submitted successfully. Pending admin approval.',
-      data: { investment: investment[0] }
+  
+  if (!document) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'No document found with that ID'
     });
-  } catch (error) {
-    await session.abortTransaction();
-    console.error('Error during investment submission:', error); // Log specific error
-    res.status(500).json({ message: 'Failed to submit investment' });
-  } finally {
-    session.endSession();
   }
+
+  // Check if user has permission
+  if (req.user.role !== 'superadmin' && document.user.toString() !== req.user.id) {
+    return res.status(403).json({
+      status: 'error',
+      message: 'You do not have permission to view this receipt'
+    });
+  }
+
+  // Check if receipt URL exists (handle both fields)
+  const receiptUrl = document.receiptUrl || document.receipt;
+  
+  if (!receiptUrl) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'No receipt found for this document'
+    });
+  }
+
+  // Return the full URL
+  const fullUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}${receiptUrl}`;
+  
+  res.status(200).json({
+    status: 'success',
+    data: {
+      receiptUrl: fullUrl
+    }
+  });
 });
 
+exports.serveReceipt = catchAsync(async (req, res) => {
+  const { filename } = req.params;
+  
+  // Construct the full path to the receipt file
+  const fullPath = path.join(__dirname, '../uploads', filename);
+  
+  // Check if file exists
+  if (!fs.existsSync(fullPath)) {
+    throw new AppError('Receipt file not found', 404);
+  }
+  
+  // Send the file
+  res.sendFile(fullPath);
+});
 
-
-exports.confirmTransaction = catchAsync(async (req, res) => {
-  const { transactionId } = req.params;
-  const transaction = await Transaction.findById(transactionId).populate('investment');
-    const investment = transaction.investment;
-    const user = await User.findById(investment.user);
-
-    // Update the user's crypto currency balance
-    user.cryptoBalances[investment.cryptoType] += investment.amount;
-    await user.save();
-
-    // Update the investment and transaction status
-    investment.status = 'confirmed';
-    transaction.status = 'confirmed';
-    await investment.save();
-    await transaction.save();
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Investment approved successfully'
+exports.submitInvestment = catchAsync(async (req, res) => {
+  // Validate request
+  if (!req.file) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Please upload a receipt'
     });
-  }),
+  }
+  const receiptPath = req.file ? `/uploads/${req.file.filename}` : null;
 
-exports.rejectInvestment = catchAsync(async (req, res) =>{
-  const { transactionId } = req.params;
-  const transaction = await Transaction.findById(transactionId).populate('investment');
-  const investment = transaction.investment;
+  if (!receiptPath) {
+      return res.status(400).json({ message: 'Receipt is required' });
+  }
 
-  investment.status = 'rejected';
-  transaction.status = 'rejected';
-  await investment.save();
-  await transaction.save();
+  const { cryptoType, amount } = req.body;
+
+  if (!cryptoType || !amount) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Please provide both cryptoType and amount'
+    });
+  }
+
+  // Create investment record
+  const investment = await Investment.create({
+    user: req.user.id,
+    cryptoType,
+    amount: parseFloat(amount),
+    receiptUrl: receiptPath,
+    status: 'pending'
+  });
+
+  // Create corresponding transaction record
+  const transaction = await Transaction.create({
+    user: req.user.id,
+    type: 'investment',
+    amount: parseFloat(amount),
+    currency: cryptoType,
+    status: 'pending',
+    receipt: receiptPath
+  });
+
+  return res.status(201).json({
+    status: 'success',
+    data: {
+      investment,
+      transaction
+    }
+  });
+});
+
+exports.processInvestment = catchAsync(async (req, res) => {
+  const { transactionId, action } = req.params;
+  
+  const transaction = await Transaction.findById(transactionId);
+  if (!transaction) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'Transaction not found'
+    });
+  }
+
+  const user = await User.findById(transaction.user);
+  if (!user) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'User not found'
+    });
+  }
+
+  if (action === 'approve') {
+    // Update user's crypto balance
+    if (!user.cryptoBalances) {
+      user.cryptoBalances = {};
+    }
+    
+    const currentBalance = user.cryptoBalances[transaction.currency] || 0;
+    user.cryptoBalances[transaction.currency] = currentBalance + transaction.amount;
+    
+    // Update transaction status
+    transaction.status = 'confirmed';
+    
+    await user.save();
+    await transaction.save();
+    
+    return res.status(200).json({
+      status: 'success',
+      message: 'Investment approved and balance updated'
+    });
+  } else if (action === 'reject') {
+    transaction.status = 'rejected';
+    await transaction.save();
+    
+    return res.status(200).json({
+      status: 'success',
+      message: 'Investment rejected'
+    });
+  }
+
+  return res.status(400).json({
+    status: 'error',
+    message: 'Invalid action'
+  });
+});
+
+exports.getPendingInvestments = catchAsync(async (req, res) => {
+  const investments = await Transaction.find({
+    type: 'investment',
+    status: 'pending'
+  }).populate('user', 'name email');
 
   res.status(200).json({
     status: 'success',
-    message: 'Investment rejected successfully'
+    data: investments
   });
-})
-
+});
 
 exports.adjustInvestment = catchAsync(async (req, res) => {
   const { userId, adjustments } = req.body;
-
+  
   if (!userId || !adjustments) {
-    throw new AppError('User ID and adjustments are required', 400);
+    throw new AppError('Missing required fields', 400);
   }
 
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
 
-  try {
-    const user = await User.findById(userId).session(session);
-    
-    if (!user) {
-      throw new AppError('User not found', 404);
-    }
+  // Initialize cryptoBalances if it doesn't exist
+  if (!user.cryptoBalances) {
+    user.cryptoBalances = {};
+  }
 
-    // Initialize cryptoBalances if it doesn't exist
-    if (!user.cryptoBalances) {
-      user.cryptoBalances = new Map();
-    }
+  // Update the specific crypto balance
+  const { cryptoType, amount } = adjustments;
+  user.cryptoBalances[cryptoType] = amount;
+  
+  await user.save();
 
-    // Update user's cryptoBalances
-    for (const [cryptoType, amount] of Object.entries(adjustments)) {
-      const currentBalance = user.cryptoBalances.get(cryptoType) || 0;
-      const newBalance = currentBalance + parseFloat(amount);
-      user.cryptoBalances.set(cryptoType, Math.max(0, newBalance));
-    }
-
-    // Create a transaction record
-    const transaction = await Transaction.create([{
-      user: userId,
-      type: 'adjustment',
-      adjustments: new Map(Object.entries(adjustments)),
-      performedBy: req.user._id,
-      status: 'confirmed'
-    }], { session });
-
-    await user.save({ session });
-    await session.commitTransaction();
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Balances adjusted successfully',
-      data: {
-        user: {
-          _id: user._id,
-          cryptoBalances: Object.fromEntries(user.cryptoBalances)
-        },
-        transaction: transaction[0]
+  res.status(200).json({
+    status: 'success',
+    message: 'Investment balance adjusted successfully',
+    data: {
+      user: {
+        id: user._id,
+        name: user.name,
+        cryptoBalances: user.cryptoBalances
       }
-    });
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
-  }
+    }
+  });
 });
+
 
 exports.requestWithdrawal = catchAsync(async (req, res) => {
   const { amount } = req.body;

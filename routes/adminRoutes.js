@@ -1,18 +1,28 @@
 const express = require('express');
 const { authMiddleware, restrictTo } = require('../middleware/auth');
 const adminController = require('../controllers/adminController');
+const authController = require('../controllers/authController');
 
 const router = express.Router();
 
-// Protect all routes and restrict access to superadmins
+// Protect all routes and restrict to superadmin
 router.use(authMiddleware);
 router.use(restrictTo('superadmin'));
 
+// User management
 router.get('/users', adminController.getAllUsers);
-router.patch('/confirm/:transactionId', adminController.confirmTransaction);
-router.patch('/adjust-investment', adminController.adjustInvestment);
-// routes/adminRoutes.js
-router.patch('/approve-investment/:transactionId', adminController.approveInvestment);
 
+router.patch(
+  '/change-password',
+  authMiddleware, // Verify JWT and set user
+  restrictTo('superadmin'), // Ensure user is superadmin
+  authController.changePassword
+);
+
+// Investment management
+router.get('/investments', adminController.getAllInvestments);
+router.patch('/investments/:transactionId/approve', adminController.approveInvestment);
+router.patch('/investments/:transactionId/reject', adminController.rejectInvestment);
+router.patch('/investments/adjust', adminController.adjustInvestment);
 
 module.exports = router;

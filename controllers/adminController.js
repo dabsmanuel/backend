@@ -1,91 +1,115 @@
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
+const Investment = require('../models/Investment');
+const catchAsync = require('../utils/catchAsync');
+const AppError = require('../utils/appError');
 
-exports.getAllUsers = async (req, res, next) => {
-  try {
-    const users = await User.find().select('-password');
-    res.status(200).json({
-      status: 'success',
-      data: users
-    });
-  } catch (error) {
-    next(error);
+exports.getAllUsers = catchAsync(async (req, res) => {
+  const users = await User.find().select('-password');
+  res.status(200).json({
+    status: 'success',
+    data: users
+  });
+});
+
+exports.getAllInvestments = catchAsync(async (req, res) => {
+  const investments = await Transaction.find({
+    type: 'investment'
+  }).populate('user', 'name email');
+
+  res.status(200).json({
+    status: 'success',
+    data: investments
+  });
+});
+
+exports.approveInvestment = catchAsync(async (req, res) => {
+  const { transactionId } = req.params;
+
+  const transaction = await Transaction.findById(transactionId);
+  if (!transaction) {
+    throw new AppError('Investment not found', 404);
   }
-};
 
-// Admin confirms investment and updates user's cryptocurrency balance
-exports.confirmTransaction = async (req, res, next) => {
-  try {
-    const { transactionId } = req.params;
-    const transaction = await Transaction.findById(transactionId);
-
-    if (!transaction || transaction.status !== 'pending') {
-      return res.status(400).json({ message: 'Invalid or already confirmed transaction.' });
-    }
-
-    transaction.status = 'completed';
-    await transaction.save();
-
-    if (transaction.type === 'investment') {
-      const user = await User.findById(transaction.user);
-      user.balances[transaction.currency] += transaction.amount; // Update specific cryptocurrency balance
-      await user.save();
-    }
-
-    res.status(200).json({ message: 'Investment approved successfully.' });
-  } catch (error) {
-    console.error('Transaction confirmation error:', error);
-    next(error);
+  const user = await User.findById(transaction.user);
+  if (!user) {
+    throw new AppError('User not found', 404);
   }
-};
 
-exports.adjustInvestment = async (req, res, next) => {
-  try {
-    const { userId, amount } = req.body;
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    user.totalInvestment += amount;
-    await user.save();
-
-    res.status(200).json({
-      status: 'success',
-      message: `$${amount} has been added to your total. New total: ${user.totalInvestment}`,
-      data: {
-        totalInvestment: user.totalInvestment,
-      },
-    });
-  } catch (error) {
-    next(error);
+  // Update user's crypto balance
+  if (!user.cryptoBalances) {
+    user.cryptoBalances = {};
   }
-};
-exports.approveInvestment = async (req, res, next) => {
-  try {
-    const { transactionId } = req.params;
+  
+  const currentBalance = user.cryptoBalances[transaction.currency] || 0;
+  user.cryptoBalances[transaction.currency] = currentBalance + transaction.amount;
+  
+  // Update transaction status
+  transaction.status = 'confirmed';
+  
+  await user.save();
+  await transaction.save();
 
-    const transaction = await Transaction.findByIdAndUpdate(
-      transactionId,
-      { status: 'completed' },
-      { new: true }
-    ).populate('user');
+  res.status(200).json({
+    status: 'success',
+    message: 'Investment approved successfully',
+    data: transaction
+  });
+});
 
-    if (!transaction) {
-      return res.status(404).json({ message: 'Transaction not found' });
-    }
+exports.rejectInvestment = catchAsync(async (req, res) => {
+  const { transactionId } = req.params;
 
-    const user = transaction.user;
-    user.totalInvestment += transaction.amount;
-    await user.save();
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Investment approved and reflected on user dashboard.',
-      data: { transaction },
-    });
-  } catch (error) {
-    next(error);
+  const transaction = await Transaction.findById(transactionId);
+  if (!transaction) {
+    throw new AppError('Investment not found', 404);
   }
-};
+
+  transaction.status = 'rejected';
+  await transaction.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Investment rejected successfully',
+    data: transaction
+  });
+});
+
+exports.adjustInvestment = catchAsync(async (req, res) => {
+  const { userId, adjustments } = req.body;
+  
+  if (!userId || !adjustments) {
+    throw new AppError('Missing required fields', 400);
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  // Initialize cryptoBalances if it doesn't exist
+  if (!user.cryptoBalances) {
+    user.cryptoBalances = {};
+  }
+
+  // Destructure the crypto type and adjustment amount from the request
+  const { cryptoType, amount } = adjustments;
+
+  // Get the current balance or default to 0 if not found, and add the adjustment
+  const currentBalance = user.cryptoBalances[cryptoType] || 0;
+  user.cryptoBalances[cryptoType] = currentBalance + amount;
+
+  await user.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Investment balance adjusted successfully',
+    data: {
+      user: {
+        id: user._id,
+        name: user.name,
+        cryptoBalances: user.cryptoBalances
+      }
+    }
+  });
+});

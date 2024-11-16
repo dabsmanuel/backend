@@ -42,7 +42,8 @@ const userSchema = new mongoose.Schema({
     SOL: { type: Number, default: 0 },
     BNB: { type: Number, default: 0 },
     TRX: { type: Number, default: 0 },
-    BCH: { type: Number, default: 0 }
+    BCH: { type: Number, default: 0 },
+    XRP: { type: Number, default: 0 },
   },
   resetPasswordToken: String,
   resetPasswordExpire: Date,

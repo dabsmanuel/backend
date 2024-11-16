@@ -17,7 +17,6 @@ exports.getDashboard = catchAsync(async (req, res) => {
   console.log("Fetching dashboard data for user:", req.user.id);
 
   try {
-    // Fetch user and transactions from the database
     const user = await User.findById(req.user.id);
     if (!user) {
       console.error("User not found in database.");
@@ -29,7 +28,6 @@ exports.getDashboard = catchAsync(async (req, res) => {
       .limit(10)
       .lean();
 
-    // Format transactions to match frontend expectations
     const formattedTransactions = transactions.map(t => ({
       type: t.type,
       amount: t.amount,
@@ -41,15 +39,15 @@ exports.getDashboard = catchAsync(async (req, res) => {
     const balances = {
       BTC: user.cryptoBalances.BTC || 0,
       ETH: user.cryptoBalances.ETH || 0,
-      TRN: user.cryptoBalances.TRX || 0, // Note: TRX in model, TRN in frontend
+      TRX: user.cryptoBalances.TRX || 0, 
       BCH: user.cryptoBalances.BCH || 0,
       SOL: user.cryptoBalances.SOL || 0,
       LTC: user.cryptoBalances.LTC || 0,
       BNB: user.cryptoBalances.BNB || 0,
-      USDT: user.cryptoBalances.USDT || 0
+      USDT: user.cryptoBalances.USDT || 0,
+      XRP: user.cryptoBalances.XRP || 0
     };
 
-    // Return dashboard data in the format expected by frontend
     return res.status(200).json({
       status: 'success',
       data: {
@@ -98,5 +96,76 @@ exports.getUserByName = catchAsync(async (req, res) => {
   res.status(200).json({
     status: 'success',
     data: user
+  });
+});
+
+exports.getUserBalances = catchAsync(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  
+  if (!user) {
+    return res.status(404).json({
+      status: 'fail',
+      message: 'User not found'
+    });
+  }
+
+  res.status(200).json({
+    status: 'success',
+    balances: user.cryptoBalances || {}
+  });
+});
+
+exports.requestWithdrawal = catchAsync(async (req, res) => {
+  const { amount, currency, walletAddress } = req.body;
+  const user = await User.findById(req.user.id);
+
+  if (!user.cryptoBalances[currency] || user.cryptoBalances[currency] < amount) {
+    return res.status(400).json({ message: 'Insufficient balance for withdrawal.' });
+  }
+
+  // Deduct amount from user's balance
+  user.cryptoBalances[currency] -= amount;
+  await user.save();
+
+  // Create a pending withdrawal transaction
+  const transaction = await Transaction.create({
+    user: user._id,
+    type: 'withdrawal',
+    amount,
+    currency,
+    walletAddress,
+    status: 'pending',
+  });
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Withdrawal request submitted. Processing within 24 hours.',
+    data: transaction,
+  });
+});
+
+// Fetch investment history
+exports.getInvestmentLog = catchAsync(async (req, res) => {
+  const investments = await Transaction.find({
+    user: req.user.id,
+    type: 'investment'
+  }).sort({ createdAt: -1 });
+
+  res.status(200).json({
+    status: 'success',
+    data: investments,
+  });
+});
+
+// Fetch withdrawal history
+exports.getWithdrawalLog = catchAsync(async (req, res) => {
+  const withdrawals = await Transaction.find({
+    user: req.user.id,
+    type: 'withdrawal'
+  }).sort({ createdAt: -1 });
+
+  res.status(200).json({
+    status: 'success',
+    data: withdrawals,
   });
 });

@@ -13,7 +13,7 @@ const transporter = nodemailer.createTransport({
 
 const sendEmail = async (options) => {
   const mailOptions = {
-    from: 'Capitalist Enterprise <noreply@capitalistenterprise.com>',
+    from: 'KoinFest <noreply@koinfest.com>',
     to: options.email,
     subject: options.subject,
     html: options.html,
@@ -25,9 +25,9 @@ const sendEmail = async (options) => {
 const sendWelcomeEmail = async (user) => {
   await sendEmail({
     email: user.email,
-    subject: 'Welcome to Capitalist Enterprise',
+    subject: 'Welcome to KoinFest',
     html: `
-      <h1>Welcome to Capitalist Enterprise, ${user.name}!</h1>
+      <h1>Welcome to KoinFest, ${user.name}!</h1>
       <p>We're excited to have you on board. Start investing today!</p>
     `,
   });

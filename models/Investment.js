@@ -10,7 +10,7 @@ const investmentSchema = new mongoose.Schema({
   cryptoType: {
     type: String,
     required: true,
-    enum: ['BTC', 'ETH', 'USDT', 'LTC', 'SOL', 'BNB', 'TRX', 'BCH']
+    enum: ['BTC', 'ETH', 'USDT', 'LTC', 'SOL', 'BNB', 'TRX', 'BCH', 'XRP' ]
   },
   amount: {
     type: Number,

@@ -118,7 +118,6 @@ exports.login = async (req, res, next) => {
 
 
 exports.forgotPassword = async (req, res, next) => {
-  // Implement forgot password logic here
   try {
     const user = await User.findOne({ email: req.body.email });
     if (!user) {
@@ -170,6 +169,55 @@ exports.resetPassword = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.changePassword = async (req, res, next) => {
+  try {
+      const { currentPassword, newPassword } = req.body;
+
+      // Get current user from request (set by authMiddleware)
+      const superAdmin = await SuperAdmin.findById(req.user._id).select('+password');
+
+      if (!superAdmin) {
+          return res.status(404).json({
+              status: 'fail',
+              message: 'User no longer exists'
+          });
+      }
+
+      // Verify current password
+      const isPasswordCorrect = await superAdmin.comparePassword(currentPassword);
+      if (!isPasswordCorrect) {
+          return res.status(401).json({
+              status: 'fail',
+              message: 'Current password is incorrect'
+          });
+      }
+
+      // Update password
+      superAdmin.password = newPassword;
+      await superAdmin.save();
+
+      // Generate new token
+      const token = jwt.sign(
+          { id: superAdmin._id, role: superAdmin.role },
+          process.env.JWT_SECRET,
+          { expiresIn: process.env.JWT_EXPIRES_IN }
+      );
+
+      res.status(200).json({
+          status: 'success',
+          message: 'Password updated successfully',
+          token // Send new token after password change
+      });
+  } catch (error) {
+      console.error('Change password error:', error);
+      res.status(500).json({
+          status: 'error',
+          message: 'Error updating password'
+      });
+  }
+};
+
 
 exports.protect = async (req, res, next) => {
   try {

@@ -1,27 +1,45 @@
-//routes/investmentRoute.js
+//routes\investmentRoute.js
 const express = require('express');
-const router = express.Router();
-const investmentController = require('../controllers/investmentController');
+const Investment = require('../models/Investment');
+const { submitInvestment, processInvestment, adjustInvestment } = require('../controllers/investmentController');
 const { authMiddleware, restrictTo } = require('../middleware/auth');
 const { upload } = require('../middleware/uploadMiddleware');
+const { getReceipt, serveReceipt } = require('../controllers/investmentController');
 
 
-// Investment routes
-router.post('/invest', authMiddleware, upload.single('receipt'), investmentController.submitInvestment);
 
-router.post(
-  '/adjust-investment',
-  authMiddleware,
-  restrictTo('superadmin'),
-  investmentController.adjustInvestment
-);
+const router = express.Router();
 
-router.patch('/reject/:transactionId',
-  investmentController.rejectInvestment
-);
+router.use(authMiddleware);
 
-router.patch('/confirm/:transactionId',
-  investmentController.confirmTransaction
-);
+
+router.get('/:id/receipt', getReceipt);
+
+// Route to serve receipt files
+router.get('/uploads/:filename', serveReceipt);
+
+// Update to use upload middleware
+router.post('/invest', upload.single('receipt'), submitInvestment);
+// In your investments routes file
+router.get('/:investmentId', authMiddleware, async (req, res) => {
+  try {
+    const investment = await Investment.findById(req.params.investmentId);
+    if (!investment) {
+      return res.status(404).json({ message: 'Investment not found' });
+    }
+    
+    // Optional: Check if the user has permission to view this receipt
+    if (investment.user.toString() !== req.user.id && req.user.role !== 'superadmin') {
+      return res.status(403).json({ message: 'Not authorized to view this receipt' });
+    }
+    
+    res.json({ receiptUrl: investment.receiptUrl });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching receipt' });
+  }
+});
+
+router.post('/adjust-balance', restrictTo('superadmin'), adjustInvestment);
+router.patch('/:transactionId/:action', restrictTo('superadmin'), processInvestment);
 
 module.exports = router;
