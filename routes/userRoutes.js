@@ -4,7 +4,7 @@ const userController = require('../controllers/userController');
 const authController = require('../controllers/authController');
 const investmentController = require('../controllers/investmentController');
 const { authMiddleware, restrictTo } = require('../middleware/auth');
-const { getUserBalances } = require('../controllers/userController');
+const { getUserBalances, getCryptoRates } = require('../controllers/userController');
 
 const router = express.Router();
 
@@ -23,11 +23,14 @@ router.post(
 router.get('/balances', authMiddleware, getUserBalances);
 router.post('/withdraw', userController.requestWithdrawal);
 
+
 // Route to fetch investment log
 router.get('/investment-log', userController.getInvestmentLog);
 
 // Route to fetch withdrawal log
 router.get('/withdrawal-log', userController.getWithdrawalLog);
+
+router.get('/crypto/rates', restrictTo('user'), userController.getCryptoRates);
 
 module.exports = router;
 

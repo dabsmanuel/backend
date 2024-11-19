@@ -9,7 +9,6 @@ const hpp = require('hpp');
 const path = require('path');
 const authRoutes = require('./routes/authRoute');
 const userRoutes = require('./routes/userRoutes');
-const paymentRoutes = require('./routes/paymentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const investmentsRoutes = require('./routes/investmentRoute');
 const errorHandler = require('./middleware/errorHandler');
@@ -41,7 +40,7 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 const limiter = rateLimit({
-  max: 200,
+  max: 100,
   windowMs: 60 * 60 * 1000,
   message: 'Too many requests from this IP, please try again in an hour!',
 });

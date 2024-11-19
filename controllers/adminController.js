@@ -1,8 +1,10 @@
+//controllers/adminController.js
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
-const Investment = require('../models/Investment');
+// const Investment = require('../models/Investment');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
+const CryptoRate = require('../models/CryptoRate');
 
 exports.getAllUsers = catchAsync(async (req, res) => {
   const users = await User.find().select('-password');
@@ -75,6 +77,7 @@ exports.rejectInvestment = catchAsync(async (req, res) => {
   });
 });
 
+
 exports.adjustInvestment = catchAsync(async (req, res) => {
   const { userId, adjustments } = req.body;
   
@@ -113,3 +116,161 @@ exports.adjustInvestment = catchAsync(async (req, res) => {
     }
   });
 });
+
+
+const calculateDollarValue = (cryptoAmount, usdRate) => {
+  return cryptoAmount * usdRate;
+};
+
+const calculateCryptoAmount = (dollarValue, usdRate) => {
+  return dollarValue / usdRate;
+};
+
+exports.getCryptoRates = catchAsync(async (req, res) => {
+  const rates = await CryptoRate.find();
+  
+  const formattedRates = rates.map(rate => ({
+    symbol: rate.symbol,
+    usdRate: rate.usdRate,
+    lastUpdated: rate.lastUpdated
+  }));
+
+  res.status(200).json({
+    status: 'success',
+    data: formattedRates
+  });
+});
+
+exports.updateCryptoRate = catchAsync(async (req, res) => {
+  const { symbol, usdRate } = req.body;
+  
+  if (!symbol || !usdRate || usdRate <= 0) {
+    throw new AppError('Invalid rate or symbol provided', 400);
+  }
+
+  // Get old rate first (if exists)
+  const oldRate = await CryptoRate.findOne({ symbol });
+  
+  // Update or create new rate
+  const updatedRate = await CryptoRate.findOneAndUpdate(
+    { symbol },
+    { 
+      usdRate,
+      lastUpdated: Date.now()
+    },
+    { upsert: true, new: true }
+  );
+
+  // Find users who have this crypto
+  const users = await User.find({
+    [`cryptoBalances.${symbol}`]: { $exists: true }
+  });
+
+  let affectedUsers = 0;
+
+  // Update user balances
+  for (const user of users) {
+    const currentCryptoAmount = user.cryptoBalances[symbol];
+    
+    if (currentCryptoAmount > 0) {
+      // Calculate dollar value using old rate if it exists
+      const dollarValue = oldRate 
+        ? calculateDollarValue(currentCryptoAmount, oldRate.usdRate)
+        : calculateDollarValue(currentCryptoAmount, usdRate);
+
+      // Calculate new crypto amount based on the same dollar value but new rate
+      const newCryptoAmount = calculateCryptoAmount(dollarValue, usdRate);
+      
+      // Update user's crypto balance
+      user.cryptoBalances[symbol] = newCryptoAmount;
+      await user.save();
+      
+      affectedUsers++;
+    }
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      rate: {
+        symbol,
+        usdRate,
+        lastUpdated: updatedRate.lastUpdated,
+        affectedUsers
+      }
+    }
+  });
+});
+
+// New endpoint to get user's portfolio with both crypto amounts and dollar values
+exports.getUserPortfolio = catchAsync(async (req, res) => {
+  const userId = req.params.userId;
+  const user = await User.findById(userId);
+  
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  const rates = await CryptoRate.find();
+  const ratesMap = rates.reduce((acc, rate) => {
+    acc[rate.symbol] = rate.usdRate;
+    return acc;
+  }, {});
+
+  const portfolio = {};
+  let totalPortfolioValue = 0;
+
+  // Calculate both crypto amounts and dollar values for each currency
+  for (const [symbol, amount] of Object.entries(user.cryptoBalances)) {
+    const rate = ratesMap[symbol] || 0;
+    const dollarValue = calculateDollarValue(amount, rate);
+    
+    portfolio[symbol] = {
+      cryptoAmount: amount,
+      dollarValue,
+      rate
+    };
+
+    totalPortfolioValue += dollarValue;
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      userId: user._id,
+      portfolio,
+      totalPortfolioValue
+    }
+  });
+});
+
+exports.setConversionRate = catchAsync(async (req, res, next) => { 
+  const { symbol, usdRate } = req.body; 
+  if (!symbol || !usdRate) {
+     return next(new AppError('Please provide both symbol and USD rate', 400)); 
+    } 
+    let conversion = await CryptoRate.findOneAndUpdate( 
+      { symbol }, { usdRate, lastUpdated: Date.now() }, 
+      { new: true, upsert: true } 
+    ); 
+    res.status(200).json({ 
+      status: 'success', 
+      data: { rate: conversion } }); 
+    });
+
+// In your cryptoController.js or routes file
+exports.getCryptoRate = async (req, res) => {
+  try {
+    const cryptoRates = await CryptoRate.find();
+    
+    res.status(200).json({
+      status: 'success',
+      data: cryptoRates
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch crypto rates'
+    });
+  }
+};

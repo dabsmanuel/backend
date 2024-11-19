@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
+const CryptoRate = require('../models/CryptoRate');
 
 exports.getAllUsers = catchAsync(async (req, res) => {
   const users = await User.find().select('-password');
@@ -43,9 +44,10 @@ exports.getDashboard = catchAsync(async (req, res) => {
       BCH: user.cryptoBalances.BCH || 0,
       SOL: user.cryptoBalances.SOL || 0,
       LTC: user.cryptoBalances.LTC || 0,
-      BNB: user.cryptoBalances.BNB || 0,
+      USDC: user.cryptoBalances.USDC || 0,
       USDT: user.cryptoBalances.USDT || 0,
-      XRP: user.cryptoBalances.XRP || 0
+      XRP: user.cryptoBalances.XRP || 0,
+      DOGE: user.cryptoBalances.DOGE || 0,
     };
 
     return res.status(200).json({
@@ -169,3 +171,19 @@ exports.getWithdrawalLog = catchAsync(async (req, res) => {
     data: withdrawals,
   });
 });
+
+exports.getCryptoRates = async (req, res) => {
+  try {
+    const cryptoRates = await CryptoRate.find();
+    
+    res.status(200).json({
+      status: 'success',
+      data: cryptoRates
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch crypto rates'
+    });
+  }
+};
