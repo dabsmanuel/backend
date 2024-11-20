@@ -17,7 +17,7 @@ const app = express();
 
 app.use(helmet());
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://koinfest.org', 'http://api.koinfest.org'],
+  origin: ['https://localhost:3000', 'https://koinfest.org', 'https://app.koinfest.org', 'https://www.koinfest.org', 'https://www.app.koinfest.org', 'https://koinfest-dashboard.vercel.app'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
