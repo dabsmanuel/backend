@@ -15,7 +15,6 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
-// Define allowed origins array
 const allowedOrigins = [
   'https://localhost:3000',
   'https://koinfest.org',
@@ -26,61 +25,40 @@ const allowedOrigins = [
   'http://localhost:3000'
 ];
 
-// CORS Configuration
-// const corsOptions = {
-//   origin: function (origin, callback) {
-//     // Allow requests with no origin (like mobile apps or curl requests)
-//     if (!origin) {
-//       return callback(null, true);
-//     }
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.error(`CORS error: Origin ${origin} not allowed`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // Allow cookies and authorization headers
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'X-Access-Token'
+  ],
+  exposedHeaders: ['Authorization']
+};
 
-//     // Check if the origin matches any of our allowed origins
-//     const isAllowedOrigin = allowedOrigins.some(allowedOrigin => origin === allowedOrigin) ||
-//       // Check for Vercel preview URLs
-//       origin.endsWith('.vercel.app') ||
-//       // Check for koinfest.org subdomains
-//       origin.endsWith('.koinfest.org');
 
-//     if (isAllowedOrigin) {
-//       callback(null, true);
-//     } else {
-//       console.log('Blocked by CORS:', origin); // Helpful for debugging
-//       callback(new Error('Not allowed by CORS'));
-//     }
-//   },
-//   credentials: true,
-//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-//   allowedHeaders: [
-//     'Origin',
-//     'X-Requested-With',
-//     'Content-Type',
-//     'Accept',
-//     'Authorization',
-//     'X-Access-Token'
-//   ],
-//   exposedHeaders: ['Authorization'],
-//   maxAge: 86400 // 24 hours
-// };
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
-// Apply CORS middleware
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
-// app.options('*', cors(corsOptions));
-
-// Security headers with updated CSP
+// Security headers
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      connectSrc: [
-        "'self'",
-        "https://*.koinfest.org",
-        "https://*.vercel.app",
-        ...allowedOrigins
-      ],
+      connectSrc: ["'self'", ...allowedOrigins],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
@@ -116,9 +94,6 @@ if (!fs.existsSync(uploadsDir)){
 // Logging
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
-} else {
-  // Add production logging if needed
-  app.use(morgan('combined'));
 }
 
 // Rate limiting
@@ -144,14 +119,9 @@ const authLimiter = rateLimit({
 
 app.use('/api/auth/login', authLimiter);
 
-// Health check endpoint with basic server info
+// Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-    uptime: process.uptime()
-  });
+  res.status(200).json({ status: 'healthy' });
 });
 
 // Routes
@@ -159,6 +129,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/investments', investmentsRoutes);
+const testRoute = require('./routes/testRoute');
+app.use('/', testRoute);
+
 
 // 404 handler
 app.all('*', (req, res) => {
@@ -172,14 +145,9 @@ app.all('*', (req, res) => {
 app.use(errorHandler);
 
 // Graceful shutdown handling
-const gracefulShutdown = () => {
-  console.log('👋 Graceful shutdown initiated.');
-  // Add any cleanup operations here (e.g., closing database connections)
+process.on('SIGTERM', () => {
+  console.log('👋 SIGTERM received. Graceful shutdown initiated.');
   process.exit(0);
-};
+});
 
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
-
-// Export the app
 module.exports = app;
