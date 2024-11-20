@@ -23,16 +23,28 @@ const allowedOrigins = [
   'https://www.koinfest.org',
   'https://www.app.koinfest.org',
   'https://koinfest-dashboard.vercel.app',
-  // Development origins
   'http://localhost:3000'
 ];
 
 // CORS Configuration
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // Check if the origin matches any of our allowed origins
+    const isAllowedOrigin = allowedOrigins.some(allowedOrigin => origin === allowedOrigin) ||
+      // Check for Vercel preview URLs
+      origin.endsWith('.vercel.app') ||
+      // Check for koinfest.org subdomains
+      origin.endsWith('.koinfest.org');
+
+    if (isAllowedOrigin) {
       callback(null, true);
     } else {
+      console.log('Blocked by CORS:', origin); // Helpful for debugging
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -50,16 +62,22 @@ const corsOptions = {
   maxAge: 86400 // 24 hours
 };
 
+// Apply CORS middleware
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
-// Security headers
+// Security headers with updated CSP
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      connectSrc: ["'self'", ...allowedOrigins],
+      connectSrc: [
+        "'self'",
+        "https://*.koinfest.org",
+        "https://*.vercel.app",
+        ...allowedOrigins
+      ],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
@@ -95,6 +113,9 @@ if (!fs.existsSync(uploadsDir)){
 // Logging
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
+} else {
+  // Add production logging if needed
+  app.use(morgan('combined'));
 }
 
 // Rate limiting
@@ -120,9 +141,14 @@ const authLimiter = rateLimit({
 
 app.use('/api/auth/login', authLimiter);
 
-// Health check endpoint
+// Health check endpoint with basic server info
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy' });
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    uptime: process.uptime()
+  });
 });
 
 // Routes
@@ -143,9 +169,14 @@ app.all('*', (req, res) => {
 app.use(errorHandler);
 
 // Graceful shutdown handling
-process.on('SIGTERM', () => {
-  console.log('👋 SIGTERM received. Graceful shutdown initiated.');
+const gracefulShutdown = () => {
+  console.log('👋 Graceful shutdown initiated.');
+  // Add any cleanup operations here (e.g., closing database connections)
   process.exit(0);
-});
+};
 
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+
+// Export the app
 module.exports = app;
