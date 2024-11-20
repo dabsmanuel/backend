@@ -84,16 +84,42 @@ exports.loginSuperAdmin = async (req, res, next) => {
 
 exports.signup = async (req, res, next) => {
   try {
-      const { name, email, password } = req.body;
+    const { 
+      name, 
+      email, 
+      mobileNumber, 
+      country, 
+      city, 
+      gender, 
+      dateOfBirth, 
+      password 
+    } = req.body;
+
+    if (!name || !email || !mobileNumber || !country || !city || !gender || !dateOfBirth || !password) {
+      return res.status(400).json({ 
+        message: 'Please provide all required fields' 
+      });
+    }
       const existingUser = await User.findOne({ email });
       if (existingUser) {
           return res.status(400).json({ message: 'Email already exists. Please try logging in.' });
       }
 
-      const newUser = await User.create({ name, email, password, role: 'user' });
+      const newUser = await User.create({ name, 
+        email, 
+        mobileNumber, 
+        country, 
+        city, 
+        gender, 
+        dateOfBirth, 
+        password, role: 'user' });
       const token = signToken(newUser._id);
 
-      res.status(201).json({ status: 'success', token, data: { user: newUser } });
+      res.status(201).json({
+       status: 'success', 
+       token, 
+       data: { user: newUser } 
+      });
   } catch (error) {
       next(error);
   }

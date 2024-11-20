@@ -1,4 +1,3 @@
-//models/User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -14,6 +13,30 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true,
+  },
+  mobileNumber: {
+    type: String,
+    required: [true, 'Please provide a mobile number'],
+    trim: true,
+  },
+  country: {
+    type: String,
+    required: [true, 'Please provide your country'],
+    trim: true,
+  },
+  city: {
+    type: String,
+    required: [true, 'Please provide your city'],
+    trim: true,
+  },
+  gender: {
+    type: String,
+    required: [true, 'Please specify your gender'],
+    enum: ['male', 'female', 'other'],
+  },
+  dateOfBirth: {
+    type: Date,
+    required: [true, 'Please provide your date of birth'],
   },
   password: {
     type: String,
@@ -45,7 +68,6 @@ const userSchema = new mongoose.Schema({
     XRP: { type: Number, default: 0 },
     DOGE: { type: Number, default: 0 },
   },
-  
   resetPasswordToken: String,
   resetPasswordExpire: Date,
 }, { timestamps: true });
