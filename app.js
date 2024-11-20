@@ -2,7 +2,7 @@ const express = require('express');
 const morgan = require('morgan');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+// const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const hpp = require('hpp');
@@ -97,27 +97,27 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // Rate limiting
-const limiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 100,
-  message: 'Too many requests from this IP, please try again in an hour!',
-  standardHeaders: true,
-  legacyHeaders: false
-});
+// const limiter = rateLimit({
+//   windowMs: 60 * 60 * 1000, // 1 hour
+//   max: 100,
+//   message: 'Too many requests from this IP, please try again in an hour!',
+//   standardHeaders: true,
+//   legacyHeaders: false
+// });
 
-// Apply rate limiting to API routes
-app.use('/api', limiter);
+// // Apply rate limiting to API routes
+// app.use('/api', limiter);
 
 // Special rate limit for authentication routes
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
-  message: 'Too many login attempts, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false
-});
+// const authLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 5,
+//   message: 'Too many login attempts, please try again later',
+//   standardHeaders: true,
+//   legacyHeaders: false
+// });
 
-app.use('/api/auth/login', authLimiter);
+// app.use('/api/auth/login', authLimiter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
