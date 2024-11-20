@@ -27,44 +27,47 @@ const allowedOrigins = [
 ];
 
 // CORS Configuration
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) {
-      return callback(null, true);
-    }
+// const corsOptions = {
+//   origin: function (origin, callback) {
+//     // Allow requests with no origin (like mobile apps or curl requests)
+//     if (!origin) {
+//       return callback(null, true);
+//     }
 
-    // Check if the origin matches any of our allowed origins
-    const isAllowedOrigin = allowedOrigins.some(allowedOrigin => origin === allowedOrigin) ||
-      // Check for Vercel preview URLs
-      origin.endsWith('.vercel.app') ||
-      // Check for koinfest.org subdomains
-      origin.endsWith('.koinfest.org');
+//     // Check if the origin matches any of our allowed origins
+//     const isAllowedOrigin = allowedOrigins.some(allowedOrigin => origin === allowedOrigin) ||
+//       // Check for Vercel preview URLs
+//       origin.endsWith('.vercel.app') ||
+//       // Check for koinfest.org subdomains
+//       origin.endsWith('.koinfest.org');
 
-    if (isAllowedOrigin) {
-      callback(null, true);
-    } else {
-      console.log('Blocked by CORS:', origin); // Helpful for debugging
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: [
-    'Origin',
-    'X-Requested-With',
-    'Content-Type',
-    'Accept',
-    'Authorization',
-    'X-Access-Token'
-  ],
-  exposedHeaders: ['Authorization'],
-  maxAge: 86400 // 24 hours
-};
+//     if (isAllowedOrigin) {
+//       callback(null, true);
+//     } else {
+//       console.log('Blocked by CORS:', origin); // Helpful for debugging
+//       callback(new Error('Not allowed by CORS'));
+//     }
+//   },
+//   credentials: true,
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+//   allowedHeaders: [
+//     'Origin',
+//     'X-Requested-With',
+//     'Content-Type',
+//     'Accept',
+//     'Authorization',
+//     'X-Access-Token'
+//   ],
+//   exposedHeaders: ['Authorization'],
+//   maxAge: 86400 // 24 hours
+// };
 
 // Apply CORS middleware
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
+// app.options('*', cors(corsOptions));
 
 // Security headers with updated CSP
 app.use(helmet({
