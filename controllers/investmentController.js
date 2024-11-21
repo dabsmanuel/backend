@@ -44,14 +44,12 @@ exports.getReceipt = catchAsync(async (req, res) => {
   }
 
   // Ensure the URL starts with /uploads
-  const normalizedReceiptUrl = receiptUrl.startsWith('/uploads') 
-    ? receiptUrl 
-    : `/uploads/${receiptUrl.replace(/^\//, '')}`;
+  const fullReceiptUrl = `${req.protocol}://${req.get('host')}/uploads/${receiptUrl.replace(/^\//, '')}`;
 
   res.status(200).json({
     status: 'success',
     data: {
-      receiptUrl: normalizedReceiptUrl
+      receiptUrl: fullReceiptUrl
     }
   });
 });
