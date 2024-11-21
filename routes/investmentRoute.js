@@ -5,9 +5,6 @@ const { submitInvestment, processInvestment, adjustInvestment } = require('../co
 const { authMiddleware, restrictTo } = require('../middleware/auth');
 const { upload } = require('../middleware/uploadMiddleware');
 const { getReceipt, serveReceipt } = require('../controllers/investmentController');
-
-
-
 const router = express.Router();
 
 router.use(authMiddleware);

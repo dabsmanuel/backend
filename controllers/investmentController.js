@@ -47,7 +47,7 @@ exports.getReceipt = catchAsync(async (req, res) => {
   res.status(200).json({
     status: 'success',
     data: {
-      receiptUrl: fullUrl
+      receiptUrl: receiptUrl
     }
   });
 });
