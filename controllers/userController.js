@@ -62,6 +62,7 @@ exports.getDashboard = catchAsync(async (req, res) => {
           gender: user.gender,
           dateOfBirth: user.dateOfBirth,
           totalInvestment: user.totalInvestment,
+          bitcoinWalletAddress: user.bitcoinWalletAddress,
           role: 'user'
         },
         balances,

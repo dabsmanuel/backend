@@ -1,7 +1,7 @@
 //controllers/adminController.js
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
-// const Investment = require('../models/Investment');
+const Investment = require('../models/Investment');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const CryptoRate = require('../models/CryptoRate');
