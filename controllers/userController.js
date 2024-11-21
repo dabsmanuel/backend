@@ -56,8 +56,13 @@ exports.getDashboard = catchAsync(async (req, res) => {
         user: {
           name: user.name,
           email: user.email,
+          mobileNumber: user.mobileNumber,
+          country: user.country,
+          city: user.city,
+          gender: user.gender,
+          dateOfBirth: user.dateOfBirth,
           totalInvestment: user.totalInvestment,
-          bitcoinWalletAddress: user.bitcoinWalletAddress
+          role: 'user'
         },
         balances,
         transactions: formattedTransactions
@@ -74,10 +79,10 @@ exports.getDashboard = catchAsync(async (req, res) => {
 });
 
 exports.updateProfile = catchAsync(async (req, res) => {
-  const { name, email, bitcoinWalletAddress } = req.body;
+  const { name, email, dateOfBirth, gender, country, city, mobileNumber } = req.body;
   const user = await User.findByIdAndUpdate(
     req.user.id,
-    { name, email, bitcoinWalletAddress },
+    { name, email, dateOfBirth, gender, country, city, mobileNumber },
     { new: true, runValidators: true }
   );
 

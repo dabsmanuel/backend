@@ -130,19 +130,45 @@ exports.signup = async (req, res, next) => {
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    console.log('Login attempt:', { email }); // Log login attempt
+
+    // Find user and explicitly select password
     const user = await User.findOne({ email, role: 'user' }).select('+password');
 
-    if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({ message: 'Incorrect email or password' });
+    if (!user) {
+      console.log('No user found with email:', email);
+      return res.status(401).json({ message: 'No user found with this email' });
+    }
+
+    // Check password
+    const isPasswordCorrect = await user.comparePassword(password);
+    
+    if (!isPasswordCorrect) {
+      console.log('Password incorrect for email:', email);
+      return res.status(401).json({ message: 'Incorrect password' });
     }
 
     const token = signToken(user._id);
-    res.status(200).json({ status: 'success', token, data: { user } });
+    res.status(200).json({ 
+      status: 'success', 
+      token, 
+      data: { 
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role
+        } 
+      } 
+    });
   } catch (error) {
-    next(error);
+    console.error('Login error:', error);
+    res.status(500).json({ 
+      message: 'An error occurred during login', 
+      error: error.message 
+    });
   }
 };
-
 
 exports.forgotPassword = async (req, res, next) => {
   try {
