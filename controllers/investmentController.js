@@ -42,7 +42,7 @@ exports.getReceipt = catchAsync(async (req, res) => {
   }
 
   // Return the full URL
-  const fullUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}${receiptUrl}`;
+  const fullUrl = `${process.env.BACKEND_URL || 'https://koinfest.onrender.com'}${receiptUrl}`;
   
   res.status(200).json({
     status: 'success',
