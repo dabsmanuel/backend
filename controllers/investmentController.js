@@ -135,7 +135,6 @@ exports.requestWithdrawal = catchAsync(async (req, res) => {
     amount,
     currency: 'BTC',
     status: 'pending',
-    receipt: req.file.path
   });
 
   // Create notification for withdrawal request

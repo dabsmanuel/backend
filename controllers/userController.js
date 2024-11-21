@@ -145,6 +145,18 @@ exports.requestWithdrawal = catchAsync(async (req, res) => {
     status: 'pending',
   });
 
+  await Notification.create({
+    user: user._id,
+    type: 'withdrawal',
+    message: `Withdrawal request of ${amount} BTC is pending`,
+    status: 'pending',
+    details: {
+      amount,
+      currency: 'BTC',
+      transactionId: transaction._id
+    }
+  });
+
   res.status(200).json({
     status: 'success',
     message: 'Withdrawal request submitted. Processing within 24 hours.',
