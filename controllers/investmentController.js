@@ -8,10 +8,7 @@ const catchAsync = require('../utils/catchAsync');
 exports.getReceipt = catchAsync(async (req, res) => {
   const { id } = req.params;
   
-  // First try to find in Investment model
   let document = await Investment.findById(id);
-  
-  // If not found in Investment, try Transaction model
   if (!document) {
     document = await Transaction.findById(id);
   }
@@ -23,15 +20,6 @@ exports.getReceipt = catchAsync(async (req, res) => {
     });
   }
 
-  // Check if user has permission
-  if (req.user.role !== 'superadmin' && document.user.toString() !== req.user.id) {
-    return res.status(403).json({
-      status: 'error',
-      message: 'You do not have permission to view this receipt'
-    });
-  }
-
-  // Check if receipt URL exists (handle both fields)
   const receiptUrl = document.receiptUrl || document.receipt;
   
   if (!receiptUrl) {
@@ -41,8 +29,14 @@ exports.getReceipt = catchAsync(async (req, res) => {
     });
   }
 
-  // Return the full URL using the current request's protocol and host
-  const fullUrl = `${req.protocol}://${req.get('host')}${receiptUrl}`;
+  // Debug logging
+  console.log('Original Receipt URL:', receiptUrl);
+
+  // Ensure clean, consistent URL
+  const cleanUrl = receiptUrl.replace(/^\/uploads\/uploads\//, '/uploads/');
+  const fullUrl = `${req.protocol}://${req.get('host')}${cleanUrl}`;
+
+  console.log('Full Receipt URL:', fullUrl);
   
   res.status(200).json({
     status: 'success',
