@@ -5,7 +5,7 @@ const authController = require('../controllers/authController');
 const investmentController = require('../controllers/investmentController');
 const { authMiddleware, restrictTo } = require('../middleware/auth');
 const { getUserBalances, getCryptoRates } = require('../controllers/userController');
-const { createNotification } = require('../controllers/notificationController');
+const { createNotification } = require('../routes/notificationRoutes');
 
 const router = express.Router();
 
