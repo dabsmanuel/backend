@@ -7,8 +7,9 @@ const router = express.Router();
 // Routes for regular users
 router.post('/signup', authController.signup);
 router.post('/login', authController.login);
-router.post('/forgotPassword', authController.forgotPasswordWithEmail);
-// router.patch('/resetPassword/:token', authController.sendPasswordResetEmail);
+router.post('/forgotPassword', authController.forgotPassword);
+router.patch('/resetPassword/:email', authController.resetPassword);
+
 
 // Routes for super admin
 router.post('/admin/signup', authController.signupSuperAdmin);

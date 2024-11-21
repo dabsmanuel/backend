@@ -4,7 +4,6 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { promisify } = require('util');
 const SuperAdmin = require('../models/SuperAdmin');
-const nodemailer = require('nodemailer');
 
 
 const signToken = (id, role) => {
@@ -12,7 +11,6 @@ const signToken = (id, role) => {
       expiresIn: process.env.JWT_EXPIRES_IN
   });
 };
-
 
 exports.getMe = async (req, res, next) => {
     try {
@@ -33,7 +31,6 @@ exports.getMe = async (req, res, next) => {
         next(error);
     }
 };
-
 
 // Super Admin Signup
 exports.signupSuperAdmin = async (req, res, next) => {
@@ -60,7 +57,6 @@ exports.signupSuperAdmin = async (req, res, next) => {
   }
 };
 
-
 // Super Admin Login
 exports.loginSuperAdmin = async (req, res, next) => {
   try {
@@ -81,7 +77,6 @@ exports.loginSuperAdmin = async (req, res, next) => {
       next(error);
   }
 };
-
 
 exports.signup = async (req, res, next) => {
   try {
@@ -125,7 +120,6 @@ exports.signup = async (req, res, next) => {
       next(error);
   }
 };
-
 
 // Regular User Login
 exports.login = async (req, res, next) => {
@@ -251,74 +245,40 @@ exports.restrictTo = (...roles) => {
 };
 
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',  // or any other email service
-  auth: {
-    user: process.env.EMAIL_USERNAME,
-    pass: process.env.EMAIL_PASSWORD
+exports.forgotPassword = async (req, res, next) => {
+  try {
+      const { email } = req.body;
+
+      // Check if user with this email exists
+      const user = await User.findOne({ email });
+      if (!user) {
+          return res.status(404).json({ message: 'No user found with this email' });
+      }
+
+      // If email is valid, return a success response
+      res.status(200).json({ message: 'Email verified. Proceed to reset your password.' });
+  } catch (error) {
+      next(error);
   }
-});
-
-// Helper function to send email
-const sendPasswordResetEmail = async (email, resetCode) => {
-  const mailOptions = {
-    from: process.env.EMAIL_USERNAME,
-    to: email,
-    subject: 'Password Reset Code',
-    html: `
-      <h1>Password Reset Request</h1>
-      <p>You requested to reset your password. Here is your reset code:</p>
-      <h2 style="color: #4a90e2; font-size: 24px; letter-spacing: 2px;">${resetCode}</h2>
-      <p>This code will expire in 15 minutes.</p>
-      <p>If you didn't request this, please ignore this email.</p>
-    `
-  };
-
-  return await transporter.sendMail(mailOptions);
 };
 
-// Version 1: With Email Verification
-exports.forgotPasswordWithEmail = async (req, res, next) => {
+exports.resetPassword = async (req, res, next) => {
   try {
-    const { email } = req.body;
-    
-    if (!email) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'Please provide your email address'
-      });
-    }
+      const { password } = req.body;
+      const { email } = req.params;
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({
-        status: 'fail',
-        message: 'No user found with this email address'
-      });
-    }
+      // Find the user by email
+      const user = await User.findOne({ email });
+      if (!user) {
+          return res.status(404).json({ message: 'User not found' });
+      }
 
-    // Generate 6-digit reset code
-    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const resetCodeExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+      // Update password
+      user.password = password;
+      await user.save();
 
-    // Save reset code and expiration
-    user.passwordResetCode = resetCode;
-    user.passwordResetExpires = resetCodeExpires;
-    await user.save({ validateBeforeSave: false });
-
-    // Send email
-    await sendPasswordResetEmail(email, resetCode);
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Password reset code has been sent to your email'
-    });
-
+      res.status(200).json({ message: 'Password updated successfully. Please log in.' });
   } catch (error) {
-    console.error('Password reset request error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'There was an error sending the reset code. Please try again later.'
-    });
+      next(error);
   }
 };
