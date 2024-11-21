@@ -2,13 +2,13 @@ const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
   user: {
-    type: mongoose.Schema.ObjectId,
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
   type: {
     type: String,
-    enum: ['investment', 'withdrawal', 'transaction', 'account'],
+    enum: ['investment', 'withdrawal'],
     required: true
   },
   message: {
@@ -17,12 +17,13 @@ const notificationSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['confirmed', 'pending', 'rejected'],
-    required: true
+    enum: ['pending', 'confirmed', 'rejected'],
+    default: 'pending'
   },
   details: {
     amount: Number,
-    currency: String
+    currency: String,
+    transactionId: mongoose.Schema.Types.ObjectId
   },
   isRead: {
     type: Boolean,

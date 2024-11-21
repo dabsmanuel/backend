@@ -4,6 +4,7 @@ const Transaction = require('../models/Transaction');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const CryptoRate = require('../models/CryptoRate');
+const Notification = require('../models/Notifications');
 
 exports.getAllUsers = catchAsync(async (req, res) => {
   const users = await User.find().select('-password');
@@ -12,7 +13,6 @@ exports.getAllUsers = catchAsync(async (req, res) => {
     data: users
   });
 });
-
 
 exports.getDashboard = catchAsync(async (req, res) => {
   console.log("Fetching dashboard data for user:", req.user.id);
@@ -190,6 +190,49 @@ exports.getCryptoRates = async (req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'Failed to fetch crypto rates'
+    });
+  }
+};
+
+exports.getNotifications = async (req, res) => {
+  try {
+    const notifications = await Notification.find({
+      user: req.user.id,
+      isRead: false
+    })
+    .sort({ createdAt: -1 })
+    .limit(10);
+
+    res.status(200).json({
+      status: 'success',
+      data: notifications
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Error fetching notifications'
+    });
+  }
+};
+
+exports.markNotificationsAsRead = async (req, res) => {
+  try {
+    await Notification.updateMany(
+      { 
+        user: req.user.id,
+        isRead: false
+      },
+      { isRead: true }
+    );
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Notifications marked as read'
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Error marking notifications as read'
     });
   }
 };
