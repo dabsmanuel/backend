@@ -10,8 +10,6 @@ const fs = require('fs');
 exports.getReceipt = catchAsync(async (req, res) => {
   const { id } = req.params;
   
-  console.log('Fetching receipt for ID:', id);
-  
   // First try to find in Investment model
   let document = await Investment.findById(id);
   
@@ -21,7 +19,6 @@ exports.getReceipt = catchAsync(async (req, res) => {
   }
   
   if (!document) {
-    console.log('No document found with ID:', id);
     return res.status(404).json({
       status: 'error',
       message: 'No document found with that ID'
@@ -30,7 +27,6 @@ exports.getReceipt = catchAsync(async (req, res) => {
 
   // Check if user has permission
   if (req.user.role !== 'superadmin' && document.user.toString() !== req.user.id) {
-    console.log('Permission denied. Current user:', req.user.id, 'Document user:', document.user);
     return res.status(403).json({
       status: 'error',
       message: 'You do not have permission to view this receipt'
@@ -40,8 +36,6 @@ exports.getReceipt = catchAsync(async (req, res) => {
   // Check if receipt URL exists (handle both fields)
   const receiptUrl = document.receiptUrl || document.receipt;
   
-  console.log('Receipt URL found:', receiptUrl);
-  
   if (!receiptUrl) {
     return res.status(404).json({
       status: 'error',
@@ -49,13 +43,19 @@ exports.getReceipt = catchAsync(async (req, res) => {
     });
   }
 
+  // Ensure the URL starts with /uploads
+  const normalizedReceiptUrl = receiptUrl.startsWith('/uploads') 
+    ? receiptUrl 
+    : `/uploads/${receiptUrl.replace(/^\//, '')}`;
+
   res.status(200).json({
     status: 'success',
     data: {
-      receiptUrl: receiptUrl
+      receiptUrl: normalizedReceiptUrl
     }
   });
 });
+
 
 exports.serveReceipt = catchAsync(async (req, res) => {
   const { filename } = req.params;

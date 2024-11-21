@@ -79,10 +79,7 @@ app.use(xss());
 app.use(hpp());
 
 // Static files serving
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-  maxAge: '1d',
-  etag: true
-}));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Ensure uploads directory exists
 const fs = require('fs');
@@ -96,30 +93,6 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Rate limiting
-// const limiter = rateLimit({
-//   windowMs: 60 * 60 * 1000, // 1 hour
-//   max: 100,
-//   message: 'Too many requests from this IP, please try again in an hour!',
-//   standardHeaders: true,
-//   legacyHeaders: false
-// });
-
-// // Apply rate limiting to API routes
-// app.use('/api', limiter);
-
-// Special rate limit for authentication routes
-// const authLimiter = rateLimit({
-//   windowMs: 15 * 60 * 1000, // 15 minutes
-//   max: 5,
-//   message: 'Too many login attempts, please try again later',
-//   standardHeaders: true,
-//   legacyHeaders: false
-// });
-
-// app.use('/api/auth/login', authLimiter);
-
-// Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy' });
 });
