@@ -28,7 +28,7 @@ router.get('/:investmentId', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'Investment not found' });
     }
     
-  
+    // Optional: Check if the user has permission to view this receipt
     if (investment.user.toString() !== req.user.id && req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Not authorized to view this receipt' });
     }

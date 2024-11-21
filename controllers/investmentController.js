@@ -2,7 +2,6 @@ const Investment = require('../models/Investment');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const AppError = require('../utils/appError');
-const { createNotification } = require('../routes/notificationRoutes');
 const catchAsync = require('../utils/catchAsync');
 
 
@@ -68,45 +67,23 @@ exports.serveReceipt = catchAsync(async (req, res) => {
   res.sendFile(fullPath);
 });
 
-
 exports.submitInvestment = catchAsync(async (req, res) => {
   // Validate request
   if (!req.file) {
-    // Create error notification for file upload failure
-    await createNotification(
-      req.user.id, 
-      'investment', 
-      'Investment submission failed: No receipt uploaded', 
-      'error',
-      {
-        reason: 'No receipt'
-      }
-    );
-
     return res.status(400).json({
       status: 'error',
       message: 'Please upload a receipt'
     });
   }
+  const receiptPath = req.file ? `/uploads/${req.file.filename}` : null;
 
-  const receiptPath = `/uploads/${req.file.filename}`;
+  if (!receiptPath) {
+      return res.status(400).json({ message: 'Receipt is required' });
+  }
 
   const { cryptoType, amount } = req.body;
 
   if (!cryptoType || !amount) {
-    // Create error notification for missing investment details
-    await createNotification(
-      req.user.id, 
-      'investment', 
-      'Investment submission failed: Missing details', 
-      'error',
-      {
-        reason: 'Incomplete information',
-        missingFields: (!cryptoType ? 'cryptoType' : '') + 
-                       (!amount ? ', amount' : '')
-      }
-    );
-
     return res.status(400).json({
       status: 'error',
       message: 'Please provide both cryptoType and amount'
@@ -131,20 +108,6 @@ exports.submitInvestment = catchAsync(async (req, res) => {
     status: 'pending',
     receipt: receiptPath
   });
-
-  // Create success notification for investment
-  await createNotification(
-    req.user.id, 
-    'investment', 
-    `Investment of ${amount} ${cryptoType} submitted successfully`, 
-    'success',
-    {
-      investmentId: investment._id,
-      transactionId: transaction._id,
-      amount,
-      cryptoType
-    }
-  );
 
   return res.status(201).json({
     status: 'success',
