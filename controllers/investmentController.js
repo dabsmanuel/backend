@@ -3,8 +3,6 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
-const path = require('path');	
-const fs = require('fs');
 
 
 exports.getReceipt = catchAsync(async (req, res) => {
@@ -43,17 +41,16 @@ exports.getReceipt = catchAsync(async (req, res) => {
     });
   }
 
-  // Ensure the URL starts with /uploads
-  const fullReceiptUrl = `${req.protocol}://${req.get('host')}/uploads/${receiptUrl.replace(/^\//, '')}`;
-
+  // Return the full URL using the current request's protocol and host
+  const fullUrl = `${req.protocol}://${req.get('host')}${receiptUrl}`;
+  
   res.status(200).json({
     status: 'success',
     data: {
-      receiptUrl: fullReceiptUrl
+      receiptUrl: fullUrl
     }
   });
 });
-
 
 exports.serveReceipt = catchAsync(async (req, res) => {
   const { filename } = req.params;
@@ -63,12 +60,10 @@ exports.serveReceipt = catchAsync(async (req, res) => {
   
   // Check if file exists
   if (!fs.existsSync(fullPath)) {
-    return res.status(404).json({
-      status: 'error',
-      message: 'Receipt file not found'
-    });
+    throw new AppError('Receipt file not found', 404);
   }
   
+  // Send the file
   res.sendFile(fullPath);
 });
 
@@ -224,6 +219,7 @@ exports.adjustInvestment = catchAsync(async (req, res) => {
     }
   });
 });
+
 
 exports.requestWithdrawal = catchAsync(async (req, res) => {
   const { amount } = req.body;
