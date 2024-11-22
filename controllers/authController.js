@@ -264,21 +264,41 @@ exports.forgotPassword = async (req, res, next) => {
 
 exports.resetPassword = async (req, res, next) => {
   try {
-      const { password } = req.body;
-      const { email } = req.params;
+    const { password } = req.body;
+    const { email } = req.params;
 
-      // Find the user by email
-      const user = await User.findOne({ email });
-      if (!user) {
-          return res.status(404).json({ message: 'User not found' });
-      }
+    // Validate input
+    if (!password) {
+      return res.status(400).json({ 
+        message: 'Password is required' 
+      });
+    }
 
-      // Update password
-      user.password = password;
-      await user.save();
+    // Optional: Add password strength validation
+    if (password.length < 8) {
+      return res.status(400).json({ 
+        message: 'Password must be at least 8 characters long' 
+      });
+    }
 
-      res.status(200).json({ message: 'Password updated successfully. Please log in.' });
+    // Find the user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Update password
+    user.password = password;
+    await user.save();
+
+    res.status(200).json({ 
+      message: 'Password updated successfully. Please log in.' 
+    });
   } catch (error) { 
-      next(error);
+    console.error('Reset password error:', error);
+    res.status(500).json({ 
+      message: 'Error resetting password', 
+      error: error.message 
+    });
   }
 };
