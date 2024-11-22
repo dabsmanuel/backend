@@ -125,79 +125,43 @@ exports.getUserBalances = catchAsync(async (req, res) => {
 
 exports.requestWithdrawal = catchAsync(async (req, res) => {
   const { amount, currency, walletAddress } = req.body;
-  
-  // Find user and include required fields
   const user = await User.findById(req.user.id);
-  if (!user) {
-    throw new AppError('User not found', 404);
+
+  if (!user.cryptoBalances[currency] || user.cryptoBalances[currency] < amount) {
+    return res.status(400).json({ message: 'Insufficient balance for withdrawal.' });
   }
 
-  // Convert amount to number for safe comparison
-  const withdrawalAmount = Number(amount);
-  const currentBalance = Number(user.cryptoBalances?.[currency] || 0);
+  // Deduct amount from user's balance
+  user.cryptoBalances[currency] -= amount;
+  await user.save();
 
-  // Validate withdrawal amount
-  if (isNaN(withdrawalAmount) || withdrawalAmount <= 0) {
-    throw new AppError('Invalid withdrawal amount', 400);
-  }
+  // Create a pending withdrawal transaction
+  const transaction = await Transaction.create({
+    user: user._id,
+    type: 'withdrawal',
+    amount,
+    currency,
+    walletAddress,
+    status: 'pending',
+  });
 
-  // Check if user has sufficient balance
-  if (!currentBalance || withdrawalAmount > currentBalance) {
-    throw new AppError(`Insufficient balance. Available ${currency} balance: ${currentBalance}`, 400);
-  }
+  await Notification.create({
+    user: user._id,
+    type: 'withdrawal',
+    message: `Withdrawal request of ${amount} BTC is pending`,
+    status: 'pending',
+    details: {
+      amount,
+      currency: 'BTC',
+      transactionId: transaction._id
+    }
+  });
 
-  // Start a session for transaction atomicity
-  const session = await User.startSession();
-  session.startTransaction();
-
-  try {
-    // Deduct amount from user's balance
-    user.cryptoBalances[currency] = currentBalance - withdrawalAmount;
-    await user.save({ session });
-
-    // Create withdrawal transaction
-    const transaction = await Transaction.create([{
-      user: user._id,
-      type: 'withdrawal',
-      amount: withdrawalAmount,
-      currency,
-      walletAddress,
-      status: 'pending',
-      description: `Withdrawal request for ${withdrawalAmount} ${currency}`
-    }], { session });
-
-    // Create notification
-    await Notification.create([{
-      user: user._id,
-      type: 'withdrawal',
-      message: `Withdrawal request of ${withdrawalAmount} ${currency} is pending`,
-      status: 'pending',
-      details: {
-        amount: withdrawalAmount,
-        currency,
-        transactionId: transaction[0]._id
-      }
-    }], { session });
-
-    // Commit the transaction
-    await session.commitTransaction();
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Withdrawal request submitted successfully. Processing within 24 hours.',
-      data: {
-        transaction: transaction[0],
-        newBalance: user.cryptoBalances[currency]
-      }
-    });
-  } catch (error) {
-    // If anything fails, abort transaction
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    // End session
-    session.endSession();
-  }
+  res.status(200).json({
+    status: 'success',
+    message: 'Withdrawal request submitted. Processing within 24 hours.',
+    data: transaction,
+  });
 });
 
 // Fetch investment history
@@ -213,6 +177,7 @@ exports.getInvestmentLog = catchAsync(async (req, res) => {
   });
 });
 
+// Fetch withdrawal history
 exports.getWithdrawalLog = catchAsync(async (req, res) => {
   const withdrawals = await Transaction.find({
     user: req.user.id,
