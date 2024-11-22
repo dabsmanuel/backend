@@ -264,8 +264,12 @@ exports.forgotPassword = async (req, res, next) => {
 
 exports.resetPassword = async (req, res, next) => {
   try {
+    console.log('Reset password request:', { 
+      email: req.params.email, 
+      bodyKeys: Object.keys(req.body) 
+    });
+
     const { password } = req.body;
-    const { email } = req.params;
 
     // Validate input
     if (!password) {
@@ -274,21 +278,15 @@ exports.resetPassword = async (req, res, next) => {
       });
     }
 
-    // Optional: Add password strength validation
-    if (password.length < 8) {
-      return res.status(400).json({ 
-        message: 'Password must be at least 8 characters long' 
-      });
-    }
-
     // Find the user by email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: req.params.email });
     if (!user) {
+      console.log('User not found for email:', req.params.email);
       return res.status(404).json({ message: 'User not found' });
     }
 
     // Update password
-    user.password = password; // This triggers the pre-save hook to hash the password
+    user.password = password;
     await user.save();
 
     res.status(200).json({ 
@@ -298,7 +296,8 @@ exports.resetPassword = async (req, res, next) => {
     console.error('Reset password error:', error);
     res.status(500).json({ 
       message: 'Error resetting password', 
-      error: error.message 
+      errorDetails: error.message,
+      stack: error.stack
     });
   }
 };
