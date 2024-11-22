@@ -288,7 +288,7 @@ exports.resetPassword = async (req, res, next) => {
     }
 
     // Update password
-    user.password = password;
+    user.password = password; // This triggers the pre-save hook to hash the password
     await user.save();
 
     res.status(200).json({ 
