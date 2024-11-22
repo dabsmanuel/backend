@@ -134,7 +134,7 @@ exports.requestWithdrawal = catchAsync(async (req, res) => {
 
   // Convert amount to number for safe comparison
   const withdrawalAmount = Number(amount);
-  const currentBalance = Number(user.balances?.[currency] || 0);
+  const currentBalance = Number(user.cryptoBalances?.[currency] || 0);
 
   // Validate withdrawal amount
   if (isNaN(withdrawalAmount) || withdrawalAmount <= 0) {
@@ -152,7 +152,7 @@ exports.requestWithdrawal = catchAsync(async (req, res) => {
 
   try {
     // Deduct amount from user's balance
-    user.balances[currency] = currentBalance - withdrawalAmount;
+    user.cryptoBalances[currency] = currentBalance - withdrawalAmount;
     await user.save({ session });
 
     // Create withdrawal transaction
@@ -187,7 +187,7 @@ exports.requestWithdrawal = catchAsync(async (req, res) => {
       message: 'Withdrawal request submitted successfully. Processing within 24 hours.',
       data: {
         transaction: transaction[0],
-        newBalance: user.balances[currency]
+        newBalance: user.cryptoBalances[currency]
       }
     });
   } catch (error) {
@@ -199,7 +199,6 @@ exports.requestWithdrawal = catchAsync(async (req, res) => {
     session.endSession();
   }
 });
-
 
 // Fetch investment history
 exports.getInvestmentLog = catchAsync(async (req, res) => {
@@ -214,7 +213,6 @@ exports.getInvestmentLog = catchAsync(async (req, res) => {
   });
 });
 
-// Fetch withdrawal history
 exports.getWithdrawalLog = catchAsync(async (req, res) => {
   const withdrawals = await Transaction.find({
     user: req.user.id,

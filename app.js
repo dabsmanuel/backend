@@ -105,6 +105,29 @@ app.use('/api/investments', investmentsRoutes);
 const testRoute = require('./routes/testRoute');
 app.use('/', testRoute);
 
+app.post('/api/auth/resetPassword/:email', async (req, res) => {
+  try {
+      const { email } = req.params;
+      const { newPassword } = req.body;
+
+      // Find the user
+      const user = await UserModel.findOne({ email });
+      if (!user) {
+          return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Hash and update the password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      user.password = hashedPassword;
+      await user.save();
+
+      res.status(200).json({ message: 'Password reset successful' });
+  } catch (error) {
+      console.error('Error during password reset:', error);
+      res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 
 // 404 handler
 app.all('*', (req, res) => {
