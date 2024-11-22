@@ -83,5 +83,10 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
+userSchema.methods.resetPassword = async function(newPassword) {
+  this.password = newPassword;
+  return this.save({ validateBeforeSave: false });
+};
+
 const User = mongoose.model('User', userSchema);
 module.exports = User;

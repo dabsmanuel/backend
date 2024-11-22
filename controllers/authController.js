@@ -264,30 +264,14 @@ exports.forgotPassword = async (req, res, next) => {
 
 exports.resetPassword = async (req, res, next) => {
   try {
-    console.log('Reset password request:', { 
-      email: req.params.email, 
-      bodyKeys: Object.keys(req.body) 
-    });
-
     const { password } = req.body;
-
-    // Validate input
-    if (!password) {
-      return res.status(400).json({ 
-        message: 'Password is required' 
-      });
-    }
-
-    // Find the user by email
     const user = await User.findOne({ email: req.params.email });
+    
     if (!user) {
-      console.log('User not found for email:', req.params.email);
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Update password
-    user.password = password;
-    await user.save();
+    await user.resetPassword(password);
 
     res.status(200).json({ 
       message: 'Password updated successfully. Please log in.' 
@@ -296,8 +280,7 @@ exports.resetPassword = async (req, res, next) => {
     console.error('Reset password error:', error);
     res.status(500).json({ 
       message: 'Error resetting password', 
-      errorDetails: error.message,
-      stack: error.stack
+      errorDetails: error.message
     });
   }
 };
