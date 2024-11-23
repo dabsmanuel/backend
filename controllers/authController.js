@@ -96,28 +96,34 @@ exports.signup = async (req, res, next) => {
         message: 'Please provide all required fields' 
       });
     }
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-          return res.status(400).json({ message: 'Email already exists. Please try logging in.' });
-      }
 
-      const newUser = await User.create({ name, 
-        email, 
-        mobileNumber, 
-        country, 
-        city, 
-        gender, 
-        dateOfBirth, 
-        password, role: 'user' });
-      const token = signToken(newUser._id);
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already exists. Please try logging in.' });
+    }
 
-      res.status(201).json({
-       status: 'success', 
-       token, 
-       data: { user: newUser } 
-      });
+    // Store password as plain text for development
+    const newUser = await User.create({ 
+      name, 
+      email, 
+      mobileNumber, 
+      country, 
+      city, 
+      gender, 
+      dateOfBirth, 
+      password: password,  // Storing plain text password
+      role: 'user' 
+    });
+
+    const token = signToken(newUser._id);
+
+    res.status(201).json({
+      status: 'success', 
+      token, 
+      data: { user: newUser } 
+    });
   } catch (error) {
-      next(error);
+    next(error);
   }
 };
 
@@ -135,8 +141,8 @@ exports.login = async (req, res, next) => {
       return res.status(401).json({ message: 'No user found with this email' });
     }
 
-    // Check password
-    const isPasswordCorrect = await user.comparePassword(password);
+    // For development: Direct password comparison instead of using bcrypt
+    const isPasswordCorrect = password === user.password;
     
     if (!isPasswordCorrect) {
       console.log('Password incorrect for email:', email);
