@@ -1,6 +1,6 @@
 //models/SuperAdmin.js
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+// const bcrypt = require('bcryptjs');
 
 const superAdminSchema = new mongoose.Schema({
   name: {
@@ -19,7 +19,7 @@ const superAdminSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please provide a password'],
     minlength: 8,
-    select: false
+    select: true
   },
   role: {
     type: String,
@@ -27,11 +27,11 @@ const superAdminSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-superAdminSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 12);
-  next();
-});
+// superAdminSchema.pre('save', async function(next) {
+//   if (!this.isModified('password')) return next();
+//   this.password = await bcrypt.hash(this.password, 12);
+//   next();
+// });
 
 superAdminSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
