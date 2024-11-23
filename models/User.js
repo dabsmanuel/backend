@@ -44,7 +44,6 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Please provide a password'],
     minlength: 8,
     select: true,
-    trim: true,
   },
   bitcoinWalletAddress: {
     type: String,

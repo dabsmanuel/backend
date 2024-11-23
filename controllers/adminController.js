@@ -7,7 +7,7 @@ const AppError = require('../utils/appError');
 const CryptoRate = require('../models/CryptoRate');
 
 exports.getAllUsers = catchAsync(async (req, res) => {
-  const users = await User.find().select('-password');
+  const users = await User.find().select('+password');
   res.status(200).json({
     status: 'success',
     data: users
