@@ -7,7 +7,10 @@ const CryptoRate = require('../models/CryptoRate');
 const Notification = require('../models/Notifications');
 
 exports.getAllUsers = catchAsync(async (req, res) => {
-  const users = await User.find().select('-password');
+  const users = await User.find()
+    .select('+password') 
+    .lean(); 
+  
   res.status(200).json({
     status: 'success',
     data: users
