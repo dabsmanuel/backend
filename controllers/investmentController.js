@@ -125,9 +125,9 @@ exports.requestWithdrawal = catchAsync(async (req, res) => {
     throw new AppError('Insufficient funds for withdrawal', 400);
   }
 
-  if (!req.file) {
-    throw new AppError('Please upload a receipt for your transaction', 400);
-  }
+  // if (!req.file) {
+  //   throw new AppError('Please upload a receipt for your transaction', 400);
+  // }
 
   const transaction = await Transaction.create({
     user: user._id,
