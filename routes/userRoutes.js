@@ -36,5 +36,3 @@ router.get('/crypto/rates', restrictTo('user'), userController.getCryptoRates);
 
 module.exports = router;
 
-
-module.exports = router;

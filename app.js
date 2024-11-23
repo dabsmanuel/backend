@@ -12,6 +12,8 @@ const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const investmentsRoutes = require('./routes/investmentRoute');
 const errorHandler = require('./middleware/errorHandler');
+const notificationRoutes = require('./routes/notificationRoutes');
+
 
 const app = express();
 
@@ -128,6 +130,7 @@ app.post('/api/auth/resetPassword/:email', async (req, res) => {
   }
 });
 
+app.use('/api/notifications', notificationRoutes);
 
 // 404 handler
 app.all('*', (req, res) => {

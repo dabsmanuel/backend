@@ -4,7 +4,7 @@ const Transaction = require('../models/Transaction');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const Notification = require('../models/Notifications');
-
+const notificationController = require('../controllers/notificationController');
 
 
 exports.getReceipt = catchAsync(async (req, res) => {
@@ -184,7 +184,7 @@ exports.submitInvestment = catchAsync(async (req, res) => {
   }
 
   // Create investment record
-  const investment = await Investment.create({
+  const investment = await notificationController.createNotification({
     user: req.user.id,
     cryptoType,
     amount: parseFloat(amount),
@@ -193,7 +193,7 @@ exports.submitInvestment = catchAsync(async (req, res) => {
   });
 
   // Create corresponding transaction record
-  const transaction = await Transaction.create({
+  const transaction = await notificationController.createNotification({
     user: req.user.id,
     type: 'investment',
     amount: parseFloat(amount),
@@ -203,7 +203,7 @@ exports.submitInvestment = catchAsync(async (req, res) => {
   });
 
   // Create notification for new investment
-  await Notification.create({
+  await notificationController.createNotification({
     user: req.user.id,
     type: 'investment',
     message: `New investment of ${amount} ${cryptoType} is pending`,
@@ -256,7 +256,7 @@ exports.processInvestment = catchAsync(async (req, res) => {
     transaction.status = 'confirmed';
     
     // Create notification for approved investment
-    await Notification.create({
+    await notificationController.createNotification({
       user: user._id,
       type: 'investment',
       message: `Your investment of ${transaction.amount} ${transaction.currency} has been approved`,
@@ -279,7 +279,7 @@ exports.processInvestment = catchAsync(async (req, res) => {
     transaction.status = 'rejected';
     
     // Create notification for rejected investment
-    await Notification.create({
+    await notificationController.createNotification({
       user: user._id,
       type: 'investment',
       message: `Your investment of ${transaction.amount} ${transaction.currency} has been rejected`,
@@ -304,3 +304,4 @@ exports.processInvestment = catchAsync(async (req, res) => {
     message: 'Invalid action'
   });
 });
+

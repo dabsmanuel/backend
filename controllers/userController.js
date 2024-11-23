@@ -206,45 +206,26 @@ exports.getCryptoRates = async (req, res) => {
   }
 };
 
-exports.getNotifications = async (req, res) => {
-  try {
-    const notifications = await Notification.find({
-      user: req.user.id,
-      isRead: false
-    })
-    .sort({ createdAt: -1 })
-    .limit(10);
+exports.getNotifications = catchAsync(async (req, res) => {
+  const notifications = await Notification.find({
+    user: req.user.id,
+    read: false
+  }).sort({ createdAt: -1 });
 
-    res.status(200).json({
-      status: 'success',
-      data: notifications
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: 'error',
-      message: 'Error fetching notifications'
-    });
-  }
-};
+  res.status(200).json({
+    status: 'success',
+    data: notifications,
+  });
+});
 
-exports.markNotificationsAsRead = async (req, res) => {
-  try {
-    await Notification.updateMany(
-      { 
-        user: req.user.id,
-        isRead: false
-      },
-      { isRead: true }
-    );
+exports.markNotificationsAsRead = catchAsync(async (req, res) => {
+  await Notification.updateMany(
+    { user: req.user.id, read: false },
+    { read: true }
+  );
 
-    res.status(200).json({
-      status: 'success',
-      message: 'Notifications marked as read'
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: 'error',
-      message: 'Error marking notifications as read'
-    });
-  }
-};
+  res.status(200).json({
+    status: 'success',
+    message: 'Notifications marked as read'
+  });
+});
