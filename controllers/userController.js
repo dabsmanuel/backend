@@ -127,86 +127,91 @@ exports.getUserBalances = catchAsync(async (req, res) => {
 });
 
 exports.requestWithdrawal = catchAsync(async (req, res) => {
+  // Log the incoming request
+  console.log('Withdrawal request body:', req.body);
+  console.log('User ID:', req.user.id);
+
   const { amount, currency, walletAddress } = req.body;
-  
-  // Input validation
+
+  // Validate inputs
   if (!amount || !currency || !walletAddress) {
-    return res.status(400).json({ 
-      status: 'error',
-      message: 'Please provide amount, currency and wallet address' 
-    });
-  }
-
-  const user = await User.findById(req.user.id);
-  if (!user) {
-    return res.status(404).json({
-      status: 'error',
-      message: 'User not found'
-    });
-  }
-
-  // Validate that the currency exists in user's balances
-  if (!(currency in user.cryptoBalances)) {
+    console.log('Missing required fields:', { amount, currency, walletAddress });
     return res.status(400).json({
       status: 'error',
-      message: 'Invalid currency selected'
+      message: 'Please provide amount, currency and wallet address'
     });
   }
-
-  // Check if user has sufficient balance
-  if (!user.cryptoBalances[currency] || user.cryptoBalances[currency] < Number(amount)) {
-    return res.status(400).json({
-      status: 'error',
-      message: 'Insufficient balance for withdrawal'
-    });
-  }
-
-  // Start a MongoDB transaction
-  const session = await mongoose.startSession();
-  session.startTransaction();
 
   try {
-    // Deduct amount from user's balance
-    user.cryptoBalances[currency] -= Number(amount);
-    await user.save({ session });
+    const user = await User.findById(req.user.id);
+    console.log('User found:', user?._id, 'Balances:', user?.cryptoBalances);
 
-    // Create a pending withdrawal transaction
-    const transaction = await Transaction.create([{
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found'
+      });
+    }
+
+    // Convert and validate amount
+    const withdrawalAmount = Number(amount);
+    const currentBalance = Number(user.cryptoBalances[currency] || 0);
+
+    console.log('Balance check:', {
+      currency,
+      withdrawalAmount,
+      currentBalance,
+      hasBalance: currentBalance >= withdrawalAmount
+    });
+
+    if (isNaN(withdrawalAmount) || withdrawalAmount <= 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid withdrawal amount'
+      });
+    }
+
+    if (currentBalance < withdrawalAmount) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Insufficient balance. Available: ${currentBalance} ${currency}, Requested: ${withdrawalAmount} ${currency}`
+      });
+    }
+
+    // Process withdrawal...
+    const transaction = await Transaction.create({
       user: user._id,
       type: 'withdrawal',
-      amount: Number(amount),
+      amount: withdrawalAmount,
       currency,
       walletAddress,
-      status: 'pending',
-    }], { session });
-
-    // Create notification
-    await Notification.create([{
-      user: user._id,
-      type: 'withdrawal',
-      message: `Withdrawal request of ${amount} ${currency} is pending`,
-      status: 'pending',
-      details: {
-        amount,
-        currency,
-        transactionId: transaction[0]._id
-      }
-    }], { session });
-
-    // Commit the transaction
-    await session.commitTransaction();
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Withdrawal request submitted. Processing within 24 hours.',
-      data: transaction[0],
+      status: 'pending'
     });
+
+    // Update user balance
+    user.cryptoBalances[currency] = currentBalance - withdrawalAmount;
+    await user.save();
+
+    console.log('Withdrawal processed successfully:', {
+      transactionId: transaction._id,
+      newBalance: user.cryptoBalances[currency]
+    });
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Withdrawal request submitted successfully',
+      data: {
+        transaction,
+        newBalance: user.cryptoBalances[currency]
+      }
+    });
+
   } catch (error) {
-    // If an error occurs, abort the transaction
-    await session.abortTransaction();
-    throw error;
-  } finally {
-    session.endSession();
+    console.error('Withdrawal processing error:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to process withdrawal request'
+    });
   }
 });
 
