@@ -127,12 +127,7 @@ exports.getUserBalances = catchAsync(async (req, res) => {
   });
 });
 
-exports.requestWithdrawal = async (req, res) => {
-  console.log('Starting withdrawal request:', {
-    body: req.body,
-    userId: req.user?.id
-  });
-
+exports.requestWithdrawal = catchAsync(async (req, res) => {
   const session = await mongoose.startSession();
   
   try {
@@ -148,6 +143,15 @@ exports.requestWithdrawal = async (req, res) => {
       });
     }
 
+    // Validate cryptocurrency code
+    const validCurrencies = ['BTC', 'ETH', 'TRX', 'BCH', 'SOL', 'LTC', 'USDC', 'USDT', 'XRP', 'DOGE'];
+    if (!validCurrencies.includes(currency)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Invalid cryptocurrency code'
+      });
+    }
+
     const withdrawalAmount = Number(amount);
     if (isNaN(withdrawalAmount) || withdrawalAmount <= 0) {
       return res.status(400).json({
@@ -157,59 +161,47 @@ exports.requestWithdrawal = async (req, res) => {
     }
 
     // Verify user exists and get their data
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).session(session);
     if (!user) {
+      await session.abortTransaction();
       return res.status(404).json({
         status: 'fail',
         message: 'User not found'
       });
     }
 
-    console.log('User found:', {
-      userId: user._id,
-      balances: user.cryptoBalances
-    });
-
-    // Ensure cryptoBalances exists
+    // Initialize cryptoBalances if undefined
     if (!user.cryptoBalances) {
       user.cryptoBalances = {};
     }
 
-    // Check balance with detailed logging
-    const availableBalance = Number(user.cryptoBalances[currency] || 0);
-    console.log('Balance check:', {
-      currency,
-      available: availableBalance,
-      requested: withdrawalAmount
-    });
-
+    // Check balance with proper decimal handling
+    const availableBalance = parseFloat(user.cryptoBalances[currency] || 0);
     if (availableBalance < withdrawalAmount) {
+      await session.abortTransaction();
       return res.status(400).json({
         status: 'fail',
         message: `Insufficient balance. Available: ${availableBalance} ${currency}, Requested: ${withdrawalAmount} ${currency}`
       });
     }
 
-    // Create withdrawal transaction
-    const transaction = await Transaction.create([{
+    // Create withdrawal transaction with proper session handling
+    const transaction = new Transaction({
       user: user._id,
       type: 'withdrawal',
       amount: withdrawalAmount,
       currency,
       walletAddress,
       status: 'pending'
-    }], { session });
+    });
+    await transaction.save({ session });
 
-    console.log('Transaction created:', transaction[0]._id);
-
-    // Update user's balance with proper decimal handling
+    // Update user's balance with proper decimal precision
     user.cryptoBalances[currency] = (availableBalance - withdrawalAmount).toFixed(8);
     await user.save({ session });
 
-    console.log('User balance updated');
-
-    // Create notification
-    await Notification.create([{
+    // Create notification with proper session handling
+    const notification = new Notification({
       user: user._id,
       type: 'withdrawal',
       message: `Withdrawal request of ${withdrawalAmount} ${currency} is pending`,
@@ -217,42 +209,40 @@ exports.requestWithdrawal = async (req, res) => {
       details: {
         amount: withdrawalAmount,
         currency,
-        transactionId: transaction[0]._id
+        transactionId: transaction._id
       }
-    }], { session });
-
-    console.log('Notification created');
+    });
+    await notification.save({ session });
 
     await session.commitTransaction();
-    console.log('Transaction committed successfully');
 
     return res.status(200).json({
       status: 'success',
       message: 'Withdrawal request submitted successfully',
       data: {
-        transaction: transaction[0],
+        transaction,
         newBalance: user.cryptoBalances[currency]
       }
     });
 
   } catch (error) {
+    await session.abortTransaction();
+    
     console.error('Withdrawal processing error:', {
       error: error.message,
       stack: error.stack,
       userId: req.user?.id
     });
-
-    await session.abortTransaction();
     
     return res.status(500).json({
       status: 'error',
-      message: 'An error occurred while processing your withdrawal',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'An error occurred while processing your withdrawal'
     });
   } finally {
     session.endSession();
   }
-};
+});
+
 
 // Fetch investment history
 exports.getInvestmentLog = catchAsync(async (req, res) => {
