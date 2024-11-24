@@ -82,33 +82,41 @@ exports.adjustInvestment = catchAsync(async (req, res) => {
   const { userId, adjustments } = req.body;
   
   if (!userId || !adjustments) {
-    return res.status(400).json({ status: 'error', message: 'Missing required fields' });
+    throw new AppError('Missing required fields', 400);
   }
 
   const user = await User.findById(userId);
   if (!user) {
-    return res.status(404).json({ status: 'error', message: 'User not found' });
+    throw new AppError('User not found', 404);
   }
 
-  // Initialize balances if not present
-  user.cryptoBalances = user.cryptoBalances || {};
+  // Initialize cryptoBalances if it doesn't exist
+  if (!user.cryptoBalances) {
+    user.cryptoBalances = {};
+  }
 
   const { cryptoType, amount } = adjustments;
-  if (!cryptoType || typeof amount !== 'number') {
-    return res.status(400).json({ status: 'error', message: 'Invalid adjustment data' });
+  
+  // Validate the adjustment data
+  if (!cryptoType || amount === undefined) {
+    throw new AppError('Invalid adjustment data: cryptoType and amount are required', 400);
   }
-
-  // Validate cryptoType
-  const validCryptoTypes = ['BTC', 'ETH', 'TRX', 'SOL', 'LTC', 'USDC', 'USDT', 'XRP', 'DOGE'];
-  if (!validCryptoTypes.includes(cryptoType)) {
-    return res.status(400).json({ status: 'error', message: 'Unsupported crypto type' });
-  }
-
-  const currentBalance = user.cryptoBalances[cryptoType] || 0;
-  user.cryptoBalances[cryptoType] = currentBalance + amount;
 
   try {
+    // Convert amount to number if it's a string
+    const adjustmentAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    
+    // Get current balance or default to 0
+    const currentBalance = user.cryptoBalances[cryptoType] || 0;
+    
+    // Calculate new balance
+    const newBalance = currentBalance + adjustmentAmount;
+    
+    // Update the balance
+    user.cryptoBalances[cryptoType] = Math.max(0, newBalance); // Prevent negative balances
+    
     await user.save();
+
     res.status(200).json({
       status: 'success',
       message: 'Investment balance adjusted successfully',
@@ -116,13 +124,12 @@ exports.adjustInvestment = catchAsync(async (req, res) => {
         user: {
           id: user._id,
           name: user.name,
-          cryptoBalances: user.cryptoBalances,
-        },
-      },
+          cryptoBalances: user.cryptoBalances
+        }
+      }
     });
   } catch (error) {
-    console.error('Error saving user:', error);
-    res.status(500).json({ status: 'error', message: 'Failed to adjust balance' });
+    throw new AppError(`Failed to adjust balance: ${error.message}`, 500);
   }
 });
 
