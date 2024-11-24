@@ -4,7 +4,6 @@ const Transaction = require('../models/Transaction');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const CryptoRate = require('../models/CryptoRate');
-const Notification = require('../models/Notifications');
 const mongoose = require('mongoose');
 
 exports.getAllUsers = catchAsync(async (req, res) => {
@@ -200,20 +199,6 @@ exports.requestWithdrawal = catchAsync(async (req, res) => {
     user.cryptoBalances[currency] = (availableBalance - withdrawalAmount).toFixed(8);
     await user.save({ session });
 
-    // Create notification with proper session handling
-    const notification = new Notification({
-      user: user._id,
-      type: 'withdrawal',
-      message: `Withdrawal request of ${withdrawalAmount} ${currency} is pending`,
-      status: 'pending',
-      details: {
-        amount: withdrawalAmount,
-        currency,
-        transactionId: transaction._id
-      }
-    });
-    await notification.save({ session });
-
     await session.commitTransaction();
 
     return res.status(200).json({
@@ -242,7 +227,6 @@ exports.requestWithdrawal = catchAsync(async (req, res) => {
     session.endSession();
   }
 });
-
 
 // Fetch investment history
 exports.getInvestmentLog = catchAsync(async (req, res) => {
@@ -285,27 +269,3 @@ exports.getCryptoRates = async (req, res) => {
     });
   }
 };
-
-exports.getNotifications = catchAsync(async (req, res) => {
-  const notifications = await Notification.find({
-    user: req.user.id,
-    read: false
-  }).sort({ createdAt: -1 });
-
-  res.status(200).json({
-    status: 'success',
-    data: notifications,
-  });
-});
-
-exports.markNotificationsAsRead = catchAsync(async (req, res) => {
-  await Notification.updateMany(
-    { user: req.user.id, read: false },
-    { read: true }
-  );
-
-  res.status(200).json({
-    status: 'success',
-    message: 'Notifications marked as read'
-  });
-});
