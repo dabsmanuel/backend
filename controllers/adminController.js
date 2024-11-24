@@ -79,6 +79,7 @@ exports.rejectInvestment = catchAsync(async (req, res) => {
 
 
 // controllers/adminController.js
+// controllers/adminController.js
 exports.adjustInvestment = catchAsync(async (req, res) => {
   const { userId, adjustments } = req.body;
   
@@ -110,21 +111,32 @@ exports.adjustInvestment = catchAsync(async (req, res) => {
     // Get current balance for this specific crypto type
     const currentBalance = user.cryptoBalances[cryptoType] || 0;
     
-    // Set the new balance directly (not adding to existing)
-    user.cryptoBalances[cryptoType] = adjustmentAmount;
+    // Calculate new balance by adding the adjustment amount
+    // Positive values will increase the balance, negative values will decrease it
+    const newBalance = currentBalance + adjustmentAmount;
     
-    // Save only this user's changes
+    // Prevent negative balances
+    if (newBalance < 0) {
+      throw new AppError('Insufficient balance for deduction', 400);
+    }
+    
+    // Update the balance
+    user.cryptoBalances[cryptoType] = newBalance;
+    
+    // Save the user's changes
     await user.save();
 
-    // Create an audit log if you need to track changes
+    // You might want to add an audit log here to track changes
     // await AuditLog.create({
     //   userId: user._id,
     //   action: 'balance_adjustment',
     //   details: {
     //     cryptoType,
-    //     oldBalance: currentBalance,
-    //     newBalance: adjustmentAmount,
-    //     adjustedBy: req.user._id
+    //     previousBalance: currentBalance,
+    //     adjustmentAmount,
+    //     newBalance,
+    //     adjustedBy: req.user._id,
+    //     timestamp: new Date()
     //   }
     // });
 
@@ -135,11 +147,20 @@ exports.adjustInvestment = catchAsync(async (req, res) => {
         user: {
           id: user._id,
           name: user.name,
-          cryptoBalances: user.cryptoBalances
+          cryptoBalances: user.cryptoBalances,
+          adjustment: {
+            cryptoType,
+            previousBalance: currentBalance,
+            adjustmentAmount,
+            newBalance
+          }
         }
       }
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
     throw new AppError(`Failed to adjust balance: ${error.message}`, 500);
   }
 });
