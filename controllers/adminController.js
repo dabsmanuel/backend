@@ -77,9 +77,6 @@ exports.rejectInvestment = catchAsync(async (req, res) => {
   });
 });
 
-
-// controllers/adminController.js
-// controllers/adminController.js
 exports.adjustInvestment = catchAsync(async (req, res) => {
   const { userId, adjustments } = req.body;
   
@@ -165,7 +162,6 @@ exports.adjustInvestment = catchAsync(async (req, res) => {
   }
 });
 
-// Add a new endpoint to get user balances
 exports.getUserBalances = catchAsync(async (req, res) => {
   const { userId } = req.params;
   
@@ -185,7 +181,6 @@ exports.getUserBalances = catchAsync(async (req, res) => {
     }
   });
 });
-
 
 const calculateDollarValue = (cryptoAmount, usdRate) => {
   return cryptoAmount * usdRate;
@@ -343,3 +338,27 @@ exports.getCryptoRate = async (req, res) => {
     });
   }
 };
+
+
+// Add this method to your existing adminController.js
+
+exports.deleteUser = catchAsync(async (req, res) => {
+  const { userId } = req.params;
+
+  // Find and delete the user
+  const user = await User.findByIdAndDelete(userId);
+
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  // Optional: Delete related transactions or investments
+  await Transaction.deleteMany({ user: userId });
+  await Investment.deleteMany({ user: userId });
+
+  res.status(200).json({
+    status: 'success',
+    message: 'User deleted successfully',
+    data: null
+  });
+});

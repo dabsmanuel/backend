@@ -3,9 +3,6 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
-const Notification = require('../models/Notifications');
-const notificationController = require('../controllers/notificationController');
-
 
 exports.getReceipt = catchAsync(async (req, res) => {
   const { id } = req.params;
@@ -117,49 +114,6 @@ exports.adjustInvestment = catchAsync(async (req, res) => {
   });
 });
 
-// exports.requestWithdrawal = catchAsync(async (req, res) => {
-//   const { amount } = req.body;
-//   const user = await User.findById(req.user.id);
-
-//   if (user.totalInvestment < amount) {
-//     throw new AppError('Insufficient funds for withdrawal', 400);
-//   }
-
-//   // if (!req.file) {
-//   //   throw new AppError('Please upload a receipt for your transaction', 400);
-//   // }
-
-//   const transaction = await Transaction.create({
-//     user: user._id,
-//     type: 'withdrawal',
-//     amount,
-//     currency: 'BTC',
-//     status: 'pending',
-//   });
-
-//   // Create notification for withdrawal request
-//   await Notification.create({
-//     user: user._id,
-//     type: 'withdrawal',
-//     message: `Withdrawal request of ${amount} BTC is pending`,
-//     status: 'pending',
-//     details: {
-//       amount,
-//       currency: 'BTC',
-//       transactionId: transaction._id
-//     }
-//   });
-
-//   user.totalInvestment -= amount;
-//   await user.save();
-
-//   res.status(200).json({
-//     status: 'success',
-//     message: 'Withdrawal request approved. Amount will be paid within 24 hours.',
-//     data: { transaction }
-//   });
-// });
-
 exports.submitInvestment = catchAsync(async (req, res) => {
   // Validate request
   if (!req.file) {
@@ -184,7 +138,7 @@ exports.submitInvestment = catchAsync(async (req, res) => {
   }
 
   // Create investment record
-  const investment = await notificationController.createNotification({
+  const investment = await Investment.create({
     user: req.user.id,
     cryptoType,
     amount: parseFloat(amount),
@@ -193,26 +147,13 @@ exports.submitInvestment = catchAsync(async (req, res) => {
   });
 
   // Create corresponding transaction record
-  const transaction = await notificationController.createNotification({
+  const transaction = await Transaction.create({
     user: req.user.id,
     type: 'investment',
     amount: parseFloat(amount),
     currency: cryptoType,
     status: 'pending',
     receipt: receiptPath
-  });
-
-  // Create notification for new investment
-  await notificationController.createNotification({
-    user: req.user.id,
-    type: 'investment',
-    message: `New investment of ${amount} ${cryptoType} is pending`,
-    status: 'pending',
-    details: {
-      amount: parseFloat(amount),
-      currency: cryptoType,
-      transactionId: investment._id
-    }
   });
 
   return res.status(201).json({
@@ -255,19 +196,6 @@ exports.processInvestment = catchAsync(async (req, res) => {
     // Update transaction status
     transaction.status = 'confirmed';
     
-    // Create notification for approved investment
-    await notificationController.createNotification({
-      user: user._id,
-      type: 'investment',
-      message: `Your investment of ${transaction.amount} ${transaction.currency} has been approved`,
-      status: 'confirmed',
-      details: {
-        amount: transaction.amount,
-        currency: transaction.currency,
-        transactionId: transaction._id
-      }
-    });
-    
     await user.save();
     await transaction.save();
     
@@ -277,20 +205,6 @@ exports.processInvestment = catchAsync(async (req, res) => {
     });
   } else if (action === 'reject') {
     transaction.status = 'rejected';
-    
-    // Create notification for rejected investment
-    await notificationController.createNotification({
-      user: user._id,
-      type: 'investment',
-      message: `Your investment of ${transaction.amount} ${transaction.currency} has been rejected`,
-      status: 'rejected',
-      details: {
-        amount: transaction.amount,
-        currency: transaction.currency,
-        transactionId: transaction._id
-      }
-    });
-    
     await transaction.save();
     
     return res.status(200).json({
@@ -304,4 +218,3 @@ exports.processInvestment = catchAsync(async (req, res) => {
     message: 'Invalid action'
   });
 });
-
