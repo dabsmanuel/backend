@@ -127,73 +127,73 @@ exports.getUserBalances = catchAsync(async (req, res) => {
 });
 
 exports.requestWithdrawal = catchAsync(async (req, res) => {
-  // Log the incoming request
-  console.log('Withdrawal request body:', req.body);
-  console.log('User ID:', req.user.id);
-
+  console.log('Processing withdrawal request:', req.body);
   const { amount, currency, walletAddress } = req.body;
-
-  // Validate inputs
+  
   if (!amount || !currency || !walletAddress) {
-    console.log('Missing required fields:', { amount, currency, walletAddress });
     return res.status(400).json({
-      status: 'error',
+      status: 'fail',
       message: 'Please provide amount, currency and wallet address'
     });
   }
 
-  try {
-    const user = await User.findById(req.user.id);
-    console.log('User found:', user?._id, 'Balances:', user?.cryptoBalances);
+  const user = await User.findById(req.user.id);
+  console.log('User balances:', user.cryptoBalances);
+  
+  const withdrawalAmount = Number(amount);
+  const availableBalance = Number(user.cryptoBalances[currency] || 0);
 
-    if (!user) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'User not found'
-      });
-    }
+  console.log('Balance check:', {
+    withdrawalAmount,
+    availableBalance,
+    currency
+  });
 
-    // Convert and validate amount
-    const withdrawalAmount = Number(amount);
-    const currentBalance = Number(user.cryptoBalances[currency] || 0);
-
-    console.log('Balance check:', {
-      currency,
-      withdrawalAmount,
-      currentBalance,
-      hasBalance: currentBalance >= withdrawalAmount
+  // Check balance
+  if (availableBalance < withdrawalAmount) {
+    return res.status(400).json({
+      status: 'fail',
+      message: `Insufficient balance. Available: ${availableBalance} ${currency}, Requested: ${withdrawalAmount} ${currency}`
     });
+  }
 
-    if (isNaN(withdrawalAmount) || withdrawalAmount <= 0) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Invalid withdrawal amount'
-      });
-    }
+  try {
+    // Start transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    if (currentBalance < withdrawalAmount) {
-      return res.status(400).json({
-        status: 'error',
-        message: `Insufficient balance. Available: ${currentBalance} ${currency}, Requested: ${withdrawalAmount} ${currency}`
-      });
-    }
+    // Update user's balance
+    user.cryptoBalances[currency] -= withdrawalAmount;
+    await user.save({ session });
 
-    // Process withdrawal...
-    const transaction = await Transaction.create({
+    // Create withdrawal transaction
+    const transaction = await Transaction.create([{
       user: user._id,
       type: 'withdrawal',
       amount: withdrawalAmount,
       currency,
       walletAddress,
       status: 'pending'
-    });
+    }], { session });
 
-    // Update user balance
-    user.cryptoBalances[currency] = currentBalance - withdrawalAmount;
-    await user.save();
+    // Create notification
+    await Notification.create([{
+      user: user._id,
+      type: 'withdrawal',
+      message: `Withdrawal request of ${withdrawalAmount} ${currency} is pending`,
+      status: 'pending',
+      details: {
+        amount: withdrawalAmount,
+        currency,
+        transactionId: transaction[0]._id
+      }
+    }], { session });
 
-    console.log('Withdrawal processed successfully:', {
-      transactionId: transaction._id,
+    await session.commitTransaction();
+    session.endSession();
+
+    console.log('Withdrawal processed successfully', {
+      transactionId: transaction[0]._id,
       newBalance: user.cryptoBalances[currency]
     });
 
@@ -201,16 +201,16 @@ exports.requestWithdrawal = catchAsync(async (req, res) => {
       status: 'success',
       message: 'Withdrawal request submitted successfully',
       data: {
-        transaction,
+        transaction: transaction[0],
         newBalance: user.cryptoBalances[currency]
       }
     });
 
   } catch (error) {
-    console.error('Withdrawal processing error:', error);
+    console.error('Withdrawal error:', error);
     return res.status(500).json({
       status: 'error',
-      message: 'Failed to process withdrawal request'
+      message: 'An error occurred while processing your withdrawal'
     });
   }
 });

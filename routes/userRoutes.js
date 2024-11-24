@@ -21,7 +21,7 @@ router.post(
   investmentController.adjustInvestment
 );
 router.get('/balances', authMiddleware, getUserBalances);
-router.post('/withdraw', investmentController.requestWithdrawal);
+router.post('/withdraw', userController.requestWithdrawal);
 router.get('/notifications', userController.getNotifications);
 router.patch('/notifications/mark-read', userController.markNotificationsAsRead);
 

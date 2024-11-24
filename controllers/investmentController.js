@@ -117,48 +117,48 @@ exports.adjustInvestment = catchAsync(async (req, res) => {
   });
 });
 
-exports.requestWithdrawal = catchAsync(async (req, res) => {
-  const { amount } = req.body;
-  const user = await User.findById(req.user.id);
+// exports.requestWithdrawal = catchAsync(async (req, res) => {
+//   const { amount } = req.body;
+//   const user = await User.findById(req.user.id);
 
-  if (user.totalInvestment < amount) {
-    throw new AppError('Insufficient funds for withdrawal', 400);
-  }
+//   if (user.totalInvestment < amount) {
+//     throw new AppError('Insufficient funds for withdrawal', 400);
+//   }
 
-  // if (!req.file) {
-  //   throw new AppError('Please upload a receipt for your transaction', 400);
-  // }
+//   // if (!req.file) {
+//   //   throw new AppError('Please upload a receipt for your transaction', 400);
+//   // }
 
-  const transaction = await Transaction.create({
-    user: user._id,
-    type: 'withdrawal',
-    amount,
-    currency: 'BTC',
-    status: 'pending',
-  });
+//   const transaction = await Transaction.create({
+//     user: user._id,
+//     type: 'withdrawal',
+//     amount,
+//     currency: 'BTC',
+//     status: 'pending',
+//   });
 
-  // Create notification for withdrawal request
-  await Notification.create({
-    user: user._id,
-    type: 'withdrawal',
-    message: `Withdrawal request of ${amount} BTC is pending`,
-    status: 'pending',
-    details: {
-      amount,
-      currency: 'BTC',
-      transactionId: transaction._id
-    }
-  });
+//   // Create notification for withdrawal request
+//   await Notification.create({
+//     user: user._id,
+//     type: 'withdrawal',
+//     message: `Withdrawal request of ${amount} BTC is pending`,
+//     status: 'pending',
+//     details: {
+//       amount,
+//       currency: 'BTC',
+//       transactionId: transaction._id
+//     }
+//   });
 
-  user.totalInvestment -= amount;
-  await user.save();
+//   user.totalInvestment -= amount;
+//   await user.save();
 
-  res.status(200).json({
-    status: 'success',
-    message: 'Withdrawal request approved. Amount will be paid within 24 hours.',
-    data: { transaction }
-  });
-});
+//   res.status(200).json({
+//     status: 'success',
+//     message: 'Withdrawal request approved. Amount will be paid within 24 hours.',
+//     data: { transaction }
+//   });
+// });
 
 exports.submitInvestment = catchAsync(async (req, res) => {
   // Validate request
