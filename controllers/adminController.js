@@ -82,39 +82,48 @@ exports.adjustInvestment = catchAsync(async (req, res) => {
   const { userId, adjustments } = req.body;
   
   if (!userId || !adjustments) {
-    throw new AppError('Missing required fields', 400);
+    return res.status(400).json({ status: 'error', message: 'Missing required fields' });
   }
 
   const user = await User.findById(userId);
   if (!user) {
-    throw new AppError('User not found', 404);
+    return res.status(404).json({ status: 'error', message: 'User not found' });
   }
 
-  // Initialize cryptoBalances if it doesn't exist
-  if (!user.cryptoBalances) {
-    user.cryptoBalances = {};
-  }
+  // Initialize balances if not present
+  user.cryptoBalances = user.cryptoBalances || {};
 
-  // Destructure the crypto type and adjustment amount from the request
   const { cryptoType, amount } = adjustments;
+  if (!cryptoType || typeof amount !== 'number') {
+    return res.status(400).json({ status: 'error', message: 'Invalid adjustment data' });
+  }
 
-  // Get the current balance or default to 0 if not found, and add the adjustment
+  // Validate cryptoType
+  const validCryptoTypes = ['BTC', 'ETH', 'TRX', 'SOL', 'LTC', 'USDC', 'USDT', 'XRP', 'DOGE'];
+  if (!validCryptoTypes.includes(cryptoType)) {
+    return res.status(400).json({ status: 'error', message: 'Unsupported crypto type' });
+  }
+
   const currentBalance = user.cryptoBalances[cryptoType] || 0;
   user.cryptoBalances[cryptoType] = currentBalance + amount;
 
-  await user.save();
-
-  res.status(200).json({
-    status: 'success',
-    message: 'Investment balance adjusted successfully',
-    data: {
-      user: {
-        id: user._id,
-        name: user.name,
-        cryptoBalances: user.cryptoBalances
-      }
-    }
-  });
+  try {
+    await user.save();
+    res.status(200).json({
+      status: 'success',
+      message: 'Investment balance adjusted successfully',
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          cryptoBalances: user.cryptoBalances,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error saving user:', error);
+    res.status(500).json({ status: 'error', message: 'Failed to adjust balance' });
+  }
 });
 
 
