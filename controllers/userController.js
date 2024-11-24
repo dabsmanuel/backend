@@ -126,45 +126,47 @@ exports.getUserBalances = catchAsync(async (req, res) => {
   });
 });
 
-exports.requestWithdrawal = catchAsync(async (req, res) => {
-  console.log('Processing withdrawal request:', req.body);
-  const { amount, currency, walletAddress } = req.body;
+exports.requestWithdrawal = async (req, res) => {
+  const session = await mongoose.startSession();
   
-  if (!amount || !currency || !walletAddress) {
-    return res.status(400).json({
-      status: 'fail',
-      message: 'Please provide amount, currency and wallet address'
-    });
-  }
-
-  const user = await User.findById(req.user.id);
-  console.log('User balances:', user.cryptoBalances);
-  
-  const withdrawalAmount = Number(amount);
-  const availableBalance = Number(user.cryptoBalances[currency] || 0);
-
-  console.log('Balance check:', {
-    withdrawalAmount,
-    availableBalance,
-    currency
-  });
-
-  // Check balance
-  if (availableBalance < withdrawalAmount) {
-    return res.status(400).json({
-      status: 'fail',
-      message: `Insufficient balance. Available: ${availableBalance} ${currency}, Requested: ${withdrawalAmount} ${currency}`
-    });
-  }
-
   try {
-    // Start transaction
-    const session = await mongoose.startSession();
     session.startTransaction();
+    
+    const { amount, currency, walletAddress } = req.body;
+    
+    // Input validation
+    if (!amount || !currency || !walletAddress) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Please provide amount, currency and wallet address'
+      });
+    }
 
-    // Update user's balance
-    user.cryptoBalances[currency] -= withdrawalAmount;
-    await user.save({ session });
+    const user = await User.findById(req.user.id).session(session);
+    if (!user) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'User not found'
+      });
+    }
+
+    // Validate amount is a number and positive
+    const withdrawalAmount = Number(amount);
+    if (isNaN(withdrawalAmount) || withdrawalAmount <= 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Invalid withdrawal amount'
+      });
+    }
+
+    // Check if user has sufficient balance
+    const availableBalance = Number(user.cryptoBalances?.[currency] || 0);
+    if (availableBalance < withdrawalAmount) {
+      return res.status(400).json({
+        status: 'fail',
+        message: `Insufficient balance. Available: ${availableBalance} ${currency}, Requested: ${withdrawalAmount} ${currency}`
+      });
+    }
 
     // Create withdrawal transaction
     const transaction = await Transaction.create([{
@@ -175,6 +177,10 @@ exports.requestWithdrawal = catchAsync(async (req, res) => {
       walletAddress,
       status: 'pending'
     }], { session });
+
+    // Update user's balance
+    user.cryptoBalances[currency] = (availableBalance - withdrawalAmount).toFixed(8);
+    await user.save({ session });
 
     // Create notification
     await Notification.create([{
@@ -190,12 +196,6 @@ exports.requestWithdrawal = catchAsync(async (req, res) => {
     }], { session });
 
     await session.commitTransaction();
-    session.endSession();
-
-    console.log('Withdrawal processed successfully', {
-      transactionId: transaction[0]._id,
-      newBalance: user.cryptoBalances[currency]
-    });
 
     return res.status(200).json({
       status: 'success',
@@ -207,13 +207,19 @@ exports.requestWithdrawal = catchAsync(async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Withdrawal error:', error);
+    await session.abortTransaction();
+    console.error('Withdrawal processing error:', error);
+    
     return res.status(500).json({
       status: 'error',
-      message: 'An error occurred while processing your withdrawal'
+      message: 'An error occurred while processing your withdrawal',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  } finally {
+    session.endSession();
   }
-});
+};
+
 
 // Fetch investment history
 exports.getInvestmentLog = catchAsync(async (req, res) => {
