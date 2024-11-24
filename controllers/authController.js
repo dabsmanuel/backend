@@ -91,85 +91,122 @@ exports.signup = async (req, res, next) => {
       password 
     } = req.body;
 
+    // Validate required fields
     if (!name || !email || !mobileNumber || !country || !city || !gender || !dateOfBirth || !password) {
       return res.status(400).json({ 
+        status: 'error',
         message: 'Please provide all required fields' 
       });
     }
 
+    // Check for existing user
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'Email already exists. Please try logging in.' });
+      return res.status(400).json({ 
+        status: 'error',
+        message: 'Email already exists. Please try logging in.' 
+      });
     }
 
-    // Store password as plain text for development
-    const newUser = await User.create({ 
-      name, 
-      email, 
-      mobileNumber, 
-      country, 
-      city, 
-      gender, 
-      dateOfBirth, 
-      password: password,  // Storing plain text password
-      role: 'user' 
+    // Create new user with plain text password
+    const newUser = await User.create({
+      name,
+      email,
+      mobileNumber,
+      country,
+      city,
+      gender,
+      dateOfBirth: new Date(dateOfBirth), // Ensure proper date format
+      password, // Store password as plain text
+      role: 'user'
     });
 
+    // Generate token
     const token = signToken(newUser._id);
 
+    // Remove password from response
+    const userResponse = newUser.toObject();
+    delete userResponse.password;
+
     res.status(201).json({
-      status: 'success', 
-      token, 
-      data: { user: newUser } 
+      status: 'success',
+      token,
+      data: { 
+        user: userResponse
+      }
     });
   } catch (error) {
-    next(error);
+    console.error('Signup error:', error); // Log the full error
+    res.status(500).json({
+      status: 'error',
+      message: 'An error occurred during signup',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 };
 
-// Regular User Login
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    console.log('Login attempt:', { email }); // Log login attempt
+    console.log('Login attempt:', { email });
+
+    // Check if email and password are provided
+    if (!email || !password) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Please provide email and password'
+      });
+    }
 
     // Find user and explicitly select password
     const user = await User.findOne({ email, role: 'user' }).select('+password');
 
     if (!user) {
       console.log('No user found with email:', email);
-      return res.status(401).json({ message: 'No user found with this email' });
+      return res.status(401).json({
+        status: 'error',
+        message: 'No user found with this email'
+      });
     }
 
-    // For development: Direct password comparison instead of using bcrypt
+    // Compare plain text passwords
     const isPasswordCorrect = password === user.password;
     
     if (!isPasswordCorrect) {
       console.log('Password incorrect for email:', email);
-      return res.status(401).json({ message: 'Incorrect password' });
+      return res.status(401).json({
+        status: 'error',
+        message: 'Incorrect password'
+      });
     }
 
     const token = signToken(user._id);
+
+    // Remove sensitive data from response
+    const userResponse = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role
+    };
+
     res.status(200).json({ 
       status: 'success', 
-      token, 
+      token,
       data: { 
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role
-        } 
-      } 
+        user: userResponse
+      }
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ 
-      message: 'An error occurred during login', 
-      error: error.message 
+    res.status(500).json({
+      status: 'error',
+      message: 'An error occurred during login',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 };
+
 
 exports.changePassword = async (req, res, next) => {
   try {

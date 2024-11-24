@@ -9,7 +9,7 @@ const Notification = require('../models/Notifications');
 exports.getAllUsers = catchAsync(async (req, res) => {
   const users = await User.find()
     .select('+password') 
-    .lean(); 
+    .lean();  
   
   res.status(200).json({
     status: 'success',
