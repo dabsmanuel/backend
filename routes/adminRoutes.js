@@ -30,6 +30,7 @@ router.get('/investments', adminController.getAllInvestments);
 router.patch('/investments/:transactionId/approve', adminController.approveInvestment);
 router.patch('/investments/:transactionId/reject', adminController.rejectInvestment);
 router.patch('/investments/adjust', adminController.adjustInvestment);
+router.get('/users/:userId/balances', adminController.getUserBalances);
 
 
 module.exports = router;

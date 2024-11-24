@@ -78,6 +78,7 @@ exports.rejectInvestment = catchAsync(async (req, res) => {
 });
 
 
+// controllers/adminController.js
 exports.adjustInvestment = catchAsync(async (req, res) => {
   const { userId, adjustments } = req.body;
   
@@ -85,6 +86,7 @@ exports.adjustInvestment = catchAsync(async (req, res) => {
     throw new AppError('Missing required fields', 400);
   }
 
+  // Find the specific user by ID
   const user = await User.findById(userId);
   if (!user) {
     throw new AppError('User not found', 404);
@@ -95,9 +97,8 @@ exports.adjustInvestment = catchAsync(async (req, res) => {
     user.cryptoBalances = {};
   }
 
+  // Extract and validate adjustment data
   const { cryptoType, amount } = adjustments;
-  
-  // Validate the adjustment data
   if (!cryptoType || amount === undefined) {
     throw new AppError('Invalid adjustment data: cryptoType and amount are required', 400);
   }
@@ -106,16 +107,26 @@ exports.adjustInvestment = catchAsync(async (req, res) => {
     // Convert amount to number if it's a string
     const adjustmentAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     
-    // Get current balance or default to 0
+    // Get current balance for this specific crypto type
     const currentBalance = user.cryptoBalances[cryptoType] || 0;
     
-    // Calculate new balance
-    const newBalance = currentBalance + adjustmentAmount;
+    // Set the new balance directly (not adding to existing)
+    user.cryptoBalances[cryptoType] = adjustmentAmount;
     
-    // Update the balance
-    user.cryptoBalances[cryptoType] = Math.max(0, newBalance); // Prevent negative balances
-    
+    // Save only this user's changes
     await user.save();
+
+    // Create an audit log if you need to track changes
+    // await AuditLog.create({
+    //   userId: user._id,
+    //   action: 'balance_adjustment',
+    //   details: {
+    //     cryptoType,
+    //     oldBalance: currentBalance,
+    //     newBalance: adjustmentAmount,
+    //     adjustedBy: req.user._id
+    //   }
+    // });
 
     res.status(200).json({
       status: 'success',
@@ -131,6 +142,27 @@ exports.adjustInvestment = catchAsync(async (req, res) => {
   } catch (error) {
     throw new AppError(`Failed to adjust balance: ${error.message}`, 500);
   }
+});
+
+// Add a new endpoint to get user balances
+exports.getUserBalances = catchAsync(async (req, res) => {
+  const { userId } = req.params;
+  
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      user: {
+        id: user._id,
+        name: user.name,
+        cryptoBalances: user.cryptoBalances || {}
+      }
+    }
+  });
 });
 
 
