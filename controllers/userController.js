@@ -5,6 +5,7 @@ const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const CryptoRate = require('../models/CryptoRate');
 const Notification = require('../models/Notifications');
+const mongoose = require('mongoose');
 
 exports.getAllUsers = catchAsync(async (req, res) => {
   const users = await User.find()
@@ -219,7 +220,6 @@ exports.requestWithdrawal = async (req, res) => {
     session.endSession();
   }
 };
-
 
 // Fetch investment history
 exports.getInvestmentLog = catchAsync(async (req, res) => {
