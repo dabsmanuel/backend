@@ -128,6 +128,11 @@ exports.getUserBalances = catchAsync(async (req, res) => {
 });
 
 exports.requestWithdrawal = async (req, res) => {
+  console.log('Starting withdrawal request:', {
+    body: req.body,
+    userId: req.user?.id
+  });
+
   const session = await mongoose.startSession();
   
   try {
@@ -135,23 +140,14 @@ exports.requestWithdrawal = async (req, res) => {
     
     const { amount, currency, walletAddress } = req.body;
     
-    // Input validation
+    // Enhanced input validation
     if (!amount || !currency || !walletAddress) {
       return res.status(400).json({
         status: 'fail',
-        message: 'Please provide amount, currency and wallet address'
+        message: 'Missing required fields: amount, currency, and wallet address are required'
       });
     }
 
-    const user = await User.findById(req.user.id).session(session);
-    if (!user) {
-      return res.status(404).json({
-        status: 'fail',
-        message: 'User not found'
-      });
-    }
-
-    // Validate amount is a number and positive
     const withdrawalAmount = Number(amount);
     if (isNaN(withdrawalAmount) || withdrawalAmount <= 0) {
       return res.status(400).json({
@@ -160,8 +156,33 @@ exports.requestWithdrawal = async (req, res) => {
       });
     }
 
-    // Check if user has sufficient balance
-    const availableBalance = Number(user.cryptoBalances?.[currency] || 0);
+    // Verify user exists and get their data
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'User not found'
+      });
+    }
+
+    console.log('User found:', {
+      userId: user._id,
+      balances: user.cryptoBalances
+    });
+
+    // Ensure cryptoBalances exists
+    if (!user.cryptoBalances) {
+      user.cryptoBalances = {};
+    }
+
+    // Check balance with detailed logging
+    const availableBalance = Number(user.cryptoBalances[currency] || 0);
+    console.log('Balance check:', {
+      currency,
+      available: availableBalance,
+      requested: withdrawalAmount
+    });
+
     if (availableBalance < withdrawalAmount) {
       return res.status(400).json({
         status: 'fail',
@@ -179,9 +200,13 @@ exports.requestWithdrawal = async (req, res) => {
       status: 'pending'
     }], { session });
 
-    // Update user's balance
+    console.log('Transaction created:', transaction[0]._id);
+
+    // Update user's balance with proper decimal handling
     user.cryptoBalances[currency] = (availableBalance - withdrawalAmount).toFixed(8);
     await user.save({ session });
+
+    console.log('User balance updated');
 
     // Create notification
     await Notification.create([{
@@ -196,7 +221,10 @@ exports.requestWithdrawal = async (req, res) => {
       }
     }], { session });
 
+    console.log('Notification created');
+
     await session.commitTransaction();
+    console.log('Transaction committed successfully');
 
     return res.status(200).json({
       status: 'success',
@@ -208,8 +236,13 @@ exports.requestWithdrawal = async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Withdrawal processing error:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id
+    });
+
     await session.abortTransaction();
-    console.error('Withdrawal processing error:', error);
     
     return res.status(500).json({
       status: 'error',
