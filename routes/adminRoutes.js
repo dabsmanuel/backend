@@ -30,11 +30,16 @@ router.get('/investments', adminController.getAllInvestments);
 router.patch('/investments/:transactionId/approve', adminController.approveInvestment);
 router.patch('/investments/:transactionId/reject', adminController.rejectInvestment);
 router.patch('/investments/adjust', adminController.adjustInvestment);
-router.delete('/users/:userId', 
-  authMiddleware,  
-  restrictTo('superadmin'), 
-  adminController.deleteUser 
-);
+// In your adminRoutes.js
+router.all('/users/:userId', (req, res) => {
+  console.log('Catch-all route hit');
+  console.log('Method:', req.method);
+  console.log('URL:', req.url);
+  res.status(200).json({ 
+    message: 'Route received', 
+    method: req.method 
+  });
+});
 router.get('/users/:userId/balances', adminController.getUserBalances);
 
 

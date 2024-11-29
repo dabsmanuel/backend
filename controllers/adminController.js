@@ -340,8 +340,10 @@ exports.getCryptoRate = async (req, res) => {
 };
 
 
-
 exports.deleteUser = catchAsync(async (req, res) => {
+  console.log('Incoming request method:', req.method);
+  console.log('Request headers:', req.headers);
+  console.log('Request params:', req.params);
   const { userId } = req.params;
 
   console.log('Deleting user:', userId); // Add logging
