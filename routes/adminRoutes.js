@@ -30,7 +30,11 @@ router.get('/investments', adminController.getAllInvestments);
 router.patch('/investments/:transactionId/approve', adminController.approveInvestment);
 router.patch('/investments/:transactionId/reject', adminController.rejectInvestment);
 router.patch('/investments/adjust', adminController.adjustInvestment);
-router.delete('/users/:userId', restrictTo('superadmin'), adminController.deleteUser);
+router.delete('/users/:userId', 
+  authMiddleware,  
+  restrictTo('superadmin'), 
+  adminController.deleteUser 
+);
 router.get('/users/:userId/balances', adminController.getUserBalances);
 
 

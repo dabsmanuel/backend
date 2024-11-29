@@ -340,19 +340,31 @@ exports.getCryptoRate = async (req, res) => {
 };
 
 
-// Add this method to your existing adminController.js
 
 exports.deleteUser = catchAsync(async (req, res) => {
   const { userId } = req.params;
+
+  console.log('Deleting user:', userId); // Add logging
+
+  // Validate user ID
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Invalid user ID'
+    });
+  }
 
   // Find and delete the user
   const user = await User.findByIdAndDelete(userId);
 
   if (!user) {
-    throw new AppError('User not found', 404);
+    return res.status(404).json({
+      status: 'error',
+      message: 'User not found'
+    });
   }
 
-  // Optional: Delete related transactions or investments
+  // Optional: Delete related documents
   await Transaction.deleteMany({ user: userId });
   await Investment.deleteMany({ user: userId });
 
