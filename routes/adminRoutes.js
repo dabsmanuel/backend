@@ -1,4 +1,3 @@
-//routes/adminRoutes.js
 const express = require('express');
 const { authMiddleware, restrictTo } = require('../middleware/auth');
 const adminController = require('../controllers/adminController');
@@ -12,11 +11,12 @@ router.use(restrictTo('superadmin'));
 
 // User management
 router.get('/users', adminController.getAllUsers);
+router.delete('/users/:userId', adminController.deleteUser); 
 
 router.patch(
   '/change-password',
-  authMiddleware, // Verify JWT and set user
-  restrictTo('superadmin'), // Ensure user is superadmin
+  authMiddleware, 
+  restrictTo('superadmin'), 
   authController.changePassword
 );
 
@@ -24,23 +24,12 @@ router.post('/crypto/rate', adminController.setConversionRate);
 router.get('/crypto/rate', adminController.getCryptoRate);
 router.get('/users/:userId/portfolio', adminController.getUserPortfolio);
 
-
 // Investment management
 router.get('/investments', adminController.getAllInvestments);
 router.patch('/investments/:transactionId/approve', adminController.approveInvestment);
 router.patch('/investments/:transactionId/reject', adminController.rejectInvestment);
 router.patch('/investments/adjust', adminController.adjustInvestment);
-// In your adminRoutes.js
-router.all('/users/:userId', (req, res) => {
-  console.log('Catch-all route hit');
-  console.log('Method:', req.method);
-  console.log('URL:', req.url);
-  res.status(200).json({ 
-    message: 'Route received', 
-    method: req.method 
-  });
-});
-router.get('/users/:userId/balances', adminController.getUserBalances);
 
+router.get('/users/:userId/balances', adminController.getUserBalances);
 
 module.exports = router;

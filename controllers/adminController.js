@@ -5,6 +5,7 @@ const Investment = require('../models/Investment');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const CryptoRate = require('../models/CryptoRate');
+const mongoose = require('mongoose');
 
 exports.getAllUsers = catchAsync(async (req, res) => {
   const users = await User.find().select('+password');
@@ -338,7 +339,6 @@ exports.getCryptoRate = async (req, res) => {
     });
   }
 };
-
 
 exports.deleteUser = catchAsync(async (req, res) => {
   console.log('Incoming request method:', req.method);
