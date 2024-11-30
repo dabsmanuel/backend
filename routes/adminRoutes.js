@@ -11,7 +11,8 @@ router.use(restrictTo('superadmin'));
 
 // User management
 router.get('/users', adminController.getAllUsers);
-router.delete('/users/:userId', adminController.deleteUser); 
+
+router.delete('/users/:userId', adminController.deleteUser);
 
 router.patch(
   '/change-password',
